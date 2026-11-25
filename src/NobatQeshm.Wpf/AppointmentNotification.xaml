@@ -18,6 +18,8 @@
             </Border>
             <StackPanel Margin="13,10,13,10">
                 <TextBlock x:Name="NotificationTitle" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"/>
+                <TextBlock x:Name="NotificationService" Foreground="{StaticResource PrimaryBrush}" FontWeight="Bold"
+                           FontSize="25" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
                 <TextBlock x:Name="NotificationMessage" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,4"/>
                 <Button x:Name="OpenButton" Click="Open_Click" HorizontalAlignment="Left"
                         Style="{StaticResource SecondaryButton}" MinHeight="29" Margin="0,4,0,0"/>

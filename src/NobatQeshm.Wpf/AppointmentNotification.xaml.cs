@@ -6,15 +6,21 @@ namespace NobatQeshm.Wpf;
 public partial class AppointmentNotification : Window
 {
     private readonly Action _open;
-    private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(9) };
+    private readonly DispatcherTimer _timer = new();
 
-    public AppointmentNotification(string title, string message, string openLabel, Action open)
+    public AppointmentNotification(string title, string message, string openLabel, Action open, string? serviceName)
     {
         InitializeComponent();
         NotificationTitle.Text = title;
+        if (!string.IsNullOrWhiteSpace(serviceName))
+        {
+            NotificationService.Text = serviceName;
+            NotificationService.Visibility = Visibility.Visible;
+        }
         NotificationMessage.Text = message;
         OpenButton.Content = openLabel;
         _open = open;
+        _timer.Interval = TimeSpan.FromSeconds(serviceName is null ? 9 : 18);
         _timer.Tick += (_, _) => Close();
         Closed += (_, _) => _timer.Stop();
     }

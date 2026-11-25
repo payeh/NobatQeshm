@@ -84,7 +84,7 @@ public partial class MainWindow
             {
                 if (item.AlarmEnabled) PlayAlarm(item.AlarmSound, item.AlarmCount);
                 if (item.BalloonEnabled)
-                    ShowMonitorNotification("نوبت آزاد پیدا شد", $"{item.ServiceName} · {count} بازهٔ آزاد\nپلاک {item.PlateNumber} / {(item.PlateSeries.Length == 0 ? "—" : item.PlateSeries)}");
+                    ShowMonitorNotification(item.ServiceName, $"{count} بازهٔ آزاد\nپلاک {item.PlateNumber} / {(item.PlateSeries.Length == 0 ? "—" : item.PlateSeries)}");
             }
         }
         catch (Exception ex) { item.TotalSlots = 0; item.LastResult = "خطا: " + ex.Message; Log("خطا در پایش نوبت: " + ex.Message); }

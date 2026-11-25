@@ -9,7 +9,7 @@ public partial class MainWindow
     private Forms.NotifyIcon? _trayIcon;
     private WindowState _lastVisibleState = WindowState.Normal;
     private bool _allowWindowClose;
-    private readonly Queue<(string Title, string Message, string OpenLabel, Action Open)> _notifications = new();
+    private readonly Queue<(string Title, string Message, string OpenLabel, Action Open, string? ServiceName)> _notifications = new();
     private readonly List<AppointmentNotification> _visibleNotifications = [];
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -101,13 +101,13 @@ public partial class MainWindow
         _trayIcon = null;
     }
 
-    private void ShowMonitorNotification(string title, string message) =>
-        ShowNotification(title, message, "باز کردن پایش", OpenMonitoring);
+    private void ShowMonitorNotification(string serviceName, string message) =>
+        ShowNotification("نوبت آزاد پیدا شد", message, "باز کردن پایش", OpenMonitoring, serviceName);
 
-    private void ShowNotification(string title, string message, string openLabel, Action open)
+    private void ShowNotification(string title, string message, string openLabel, Action open, string? serviceName = null)
     {
         if (_closing || _activationLocked) return;
-        _notifications.Enqueue((title, message, openLabel, open));
+        _notifications.Enqueue((title, message, openLabel, open, serviceName));
         ArrangeMonitorNotifications();
     }
 
@@ -127,7 +127,7 @@ public partial class MainWindow
 
         while (_notifications.TryPeek(out var next) && bottom > workArea.Top + margin)
         {
-            var popup = new AppointmentNotification(next.Title, next.Message, next.OpenLabel, next.Open);
+            var popup = new AppointmentNotification(next.Title, next.Message, next.OpenLabel, next.Open, next.ServiceName);
             popup.MeasureForWorkArea(new Size(workArea.Width - margin * 2, workArea.Height - margin * 2));
             var top = bottom - popup.Height;
             if (top < workArea.Top + margin)
