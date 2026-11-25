@@ -1,0 +1,275 @@
+<Window x:Class="NobatQeshm.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="سامانه نوبت قشم" Icon="Assets/icon.ico"
+        Width="1360" Height="900" MinWidth="1120" MinHeight="720"
+        WindowStartupLocation="CenterScreen" Closing="Window_Closing">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{StaticResource PrimaryDarkBrush}" BorderBrush="#122F45"
+                BorderThickness="1" CornerRadius="7" Padding="16,8" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="CheckSessionButton" Content="بررسی ورود" Click="CheckSession_Click" Style="{StaticResource SecondaryButton}"/>
+                    <TextBlock x:Name="SessionHeaderText" Text="وضعیت ورود نامشخص" Foreground="#D2E2EE" Margin="10,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    <TextBlock Text="سامانه نوبت قشم" FontSize="22" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                    <TextBlock Text="نوبت‌دهی و پایش خدمات تعویض پلاک قشم" FontSize="11" Foreground="#D2E2EE" HorizontalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="مدیریت پلاک‌های ذخیره‌شده" Click="ManageSavedPlates_Click" Style="{StaticResource SecondaryButton}"/>
+                    <Image Source="Assets/icon.ico" Width="58" Height="58" Margin="8,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl x:Name="MainTabs" Grid.Row="1">
+            <TabItem Header="ورود">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="6">
+                        <GroupBox Header="حساب‌های ذخیره‌شده">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="340"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <ComboBox x:Name="SavedAccountsCombo" Grid.Column="0" DisplayMemberPath="Display" SelectionChanged="SavedAccountsCombo_SelectionChanged"/>
+                                <Button Grid.Column="1" Content="ورود با حساب" Click="RestoreSession_Click" Style="{StaticResource SuccessButton}"/>
+                                <Button Grid.Column="2" Content="حذف حساب" Click="DeleteSession_Click" Style="{StaticResource DangerButton}"/>
+                                <TextBlock x:Name="SavedAccountStatusText" Grid.Column="3" Margin="12,0" Foreground="{StaticResource MutedBrush}"/>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="ورود با کد ملی و موبایل">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Label Content="کد ملی"/>
+                                    <TextBox x:Name="NationalCodeText" Grid.Column="1" MaxLength="10" TextAlignment="Center"/>
+                                    <Label Grid.Column="2" Content="شماره موبایل" Margin="18,0,0,0"/>
+                                    <TextBox x:Name="MobileText" Grid.Column="3" MaxLength="11" TextAlignment="Center"/>
+                                </Grid>
+                                <Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Margin="4,10,4,4">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="210"/><ColumnDefinition Width="120"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Label Content="کد امنیتی"/>
+                                        <Border Grid.Column="1" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Background="White" Height="64" Margin="4">
+                                            <WebBrowser x:Name="CaptchaBrowser" FlowDirection="LeftToRight"/>
+                                        </Border>
+                                        <TextBox x:Name="CaptchaText" Grid.Column="2" FontSize="18" FontWeight="Bold" MaxLength="5" TextAlignment="Center" VerticalContentAlignment="Center"/>
+                                        <Button Grid.Column="3" Content="به‌روزرسانی" Click="RefreshCaptcha_Click" Style="{StaticResource SecondaryButton}"/>
+                                        <CheckBox x:Name="AutoCaptchaCheck" Grid.Column="4" Content="تشخیص خودکار" IsChecked="True" VerticalAlignment="Center" Margin="10,0"/>
+                                        <TextBlock x:Name="CaptchaStatusText" Grid.Column="5" Text="در حال دریافت ..." Foreground="{StaticResource MutedBrush}" Margin="10,0"/>
+                                    </Grid>
+                                </Border>
+                                <Button Content="ارسال کد فعال‌سازی" Click="RequestOtp_Click" HorizontalAlignment="Right" Style="{StaticResource SuccessButton}"/>
+                                <Separator Margin="4,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Label Content="کد فعال‌سازی"/>
+                                    <PasswordBox x:Name="OtpText" Grid.Column="1" MaxLength="12"/>
+                                    <Label Grid.Column="2" Content="نام فیلد OTP" Margin="18,0,0,0"/>
+                                    <ComboBox x:Name="OtpFieldCombo" Grid.Column="3" SelectedIndex="0">
+                                        <ComboBoxItem Content="auto"/><ComboBoxItem Content="verifyCode"/><ComboBoxItem Content="verificationCode"/>
+                                        <ComboBoxItem Content="smsCode"/><ComboBoxItem Content="otp"/><ComboBoxItem Content="code"/><ComboBoxItem Content="activeCode"/>
+                                    </ComboBox>
+                                    <Button Grid.Column="4" Content="تأیید و ورود" Click="VerifyOtp_Click" Style="{StaticResource SuccessButton}"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+                        <Border Style="{StaticResource CardStyle}" Padding="18">
+                            <StackPanel>
+                                <TextBlock x:Name="LoginStatusTitle" Text="وضعیت ورود" FontSize="17" FontWeight="Bold"/>
+                                <TextBlock x:Name="LoginStatusText" Text="هنوز وارد نشده‌اید." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="نوبت‌دهی">
+                <TabControl x:Name="ReservationTabs" Margin="6">
+                    <TabItem Header="نوبت جدید">
+                        <Grid Margin="6">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <GroupBox Header="خدمت و اطلاعات خودرو">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="SavedPlateBookingCombo" DisplayMemberPath="Display" SelectionChanged="SavedPlateBookingCombo_SelectionChanged"/>
+                                        <Label Grid.Column="1" Content="نوع خدمت"/>
+                                        <ComboBox x:Name="ServiceCombo" Grid.Column="2" DisplayMemberPath="Name" SelectionChanged="BookingInput_Changed"/>
+                                        <Label Grid.Column="3" Content="کد شماره‌گذاری"/>
+                                        <TextBox x:Name="TransferCodeText" Grid.Column="4" TextChanged="BookingInput_Changed" TextAlignment="Center"/>
+                                        <Label Grid.Column="5" Content="شماره پلاک"/>
+                                        <TextBox x:Name="ReservationPlateText" Grid.Column="6" TextChanged="BookingInput_Changed" TextAlignment="Center"/>
+                                    </Grid>
+                                    <DockPanel Margin="0,6,0,0">
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                                            <Label Content="سری پلاک (اختیاری)"/>
+                                            <TextBox x:Name="ReservationSeriesText" Width="140" TextChanged="BookingInput_Changed" TextAlignment="Center"/>
+                                            <Button Content="بررسی نوبت‌های آزاد" Click="CheckAvailability_Click" Style="{StaticResource SuccessButton}"/>
+                                            <Button Content="به‌روزرسانی خدمات" Click="LoadServices_Click" Style="{StaticResource SecondaryButton}"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="ServicesStatusText" Text="نوع خدمت‌ها پس از ورود دریافت می‌شوند" Foreground="{StaticResource MutedBrush}" Margin="10,0"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </GroupBox>
+                            <TextBlock x:Name="VehicleInfoText" Grid.Row="1" Margin="10,4"/>
+                            <Border Grid.Row="2" x:Name="AvailabilityStatusBorder" Background="#F8FAFC" CornerRadius="5" Padding="10" Margin="6,2">
+                                <TextBlock x:Name="AvailabilityStatusText" Text="هنوز نوبت‌های آزاد بررسی نشده‌اند." FontWeight="Bold" Foreground="{StaticResource MutedBrush}"/>
+                            </Border>
+                            <DataGrid x:Name="AvailableSessionsGrid" Grid.Row="3" Margin="6" SelectionChanged="AvailableSessionsGrid_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ردیف" Binding="{Binding Index}" Width="70"/>
+                                    <DataGridTextColumn Header="شناسه نوبت" Binding="{Binding Id}" Width="*"/>
+                                    <DataGridTextColumn Header="تاریخ" Binding="{Binding Date}" Width="*"/>
+                                    <DataGridTextColumn Header="شروع" Binding="{Binding Start}" Width="110"/>
+                                    <DataGridTextColumn Header="پایان" Binding="{Binding End}" Width="110"/>
+                                    <DataGridTextColumn Header="باجه" Binding="{Binding Counter}" Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Button x:Name="ConfirmReservationButton" Grid.Row="4" Content="ثبت نوبت انتخاب‌شده" Click="ConfirmReservation_Click" IsEnabled="False" HorizontalAlignment="Right" Style="{StaticResource SuccessButton}"/>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="نوبت‌های من">
+                        <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <DockPanel><Button Content="به‌روزرسانی نوبت‌های من" Click="LoadReservations_Click" DockPanel.Dock="Right"/><TextBlock x:Name="ReservationCountText" Text="پس از ورود خودکار به‌روزرسانی می‌شود" Margin="10,0"/></DockPanel>
+                            <DataGrid x:Name="ReservationsGrid" Grid.Row="1" Margin="6">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="نوع خدمت" Binding="{Binding Service}" Width="2*"/>
+                                    <DataGridTextColumn Header="پلاک" Binding="{Binding Plate}" Width="*"/>
+                                    <DataGridTextColumn Header="سری" Binding="{Binding Series}" Width="80"/>
+                                    <DataGridTextColumn Header="کد شماره‌گذاری" Binding="{Binding TransferCode}" Width="130"/>
+                                    <DataGridTextColumn Header="ساعت حضور" Binding="{Binding Time}" Width="150"/>
+                                    <DataGridTextColumn Header="زمان ثبت" Binding="{Binding CreatedAt}" Width="170"/>
+                                    <DataGridTemplateColumn Header="کد رزرو" Width="150"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="{Binding Code}" Click="CopyReservationCode_Click" Style="{StaticResource SecondaryButton}" MinHeight="28"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+                    <TabItem x:Name="ReceiptTab" Header="آخرین رسید">
+                        <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="PrintReceiptButton" Content="چاپ رسید" Click="PrintReceipt_Click" IsEnabled="False" Style="{StaticResource SuccessButton}"/>
+                                <Button x:Name="CopyReceiptImageButton" Content="کپی به‌صورت عکس" Click="CopyReceiptImage_Click" IsEnabled="False" Style="{StaticResource SecondaryButton}"/>
+                                <Button Content="کپی کد رزرو" Click="CopyReceiptCode_Click" Style="{StaticResource SecondaryButton}"/>
+                                <Button Content="ذخیره رسید HTML" Click="SaveReceipt_Click" Style="{StaticResource SecondaryButton}"/>
+                                <Button Content="تنظیم تبلیغات" Click="ReceiptAdvertising_Click" Style="{StaticResource SecondaryButton}"/>
+                            </StackPanel>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <Border x:Name="ReceiptCard" Style="{StaticResource CardStyle}" MaxWidth="900" HorizontalAlignment="Center" Padding="0" Margin="20">
+                                    <StackPanel>
+                                        <Border Background="#3730A3" CornerRadius="7,7,0,0" Padding="20,14"><DockPanel><TextBlock x:Name="ReceiptServiceText" Text="—" DockPanel.Dock="Left" Foreground="#D1FAE5" Background="#0F766E" Padding="10,6"/><StackPanel><TextBlock Text="رسید نهایی" Foreground="#C7D2FE"/><TextBlock Text="اطلاعات نوبت رزرو شده" Foreground="White" FontSize="18" FontWeight="Bold"/></StackPanel></DockPanel></Border>
+                                        <Grid Margin="20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border Style="{StaticResource CardStyle}" Background="#F8FAFC"><StackPanel><TextBlock x:Name="ReceiptDateLabel" Text="تاریخ نوبت" Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ReceiptDateText" Text="—" FontWeight="Bold" FontSize="15"/></StackPanel></Border>
+                                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Background="#F8FAFC"><StackPanel><TextBlock Text="ساعت حضور" Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ReceiptTimeText" Text="—" Foreground="#1D4ED8" FontWeight="Bold" FontSize="15"/></StackPanel></Border>
+                                        </Grid>
+                                        <Grid Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border Style="{StaticResource CardStyle}" Background="#F8FAFC"><StackPanel><TextBlock Text="شماره باجه" Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ReceiptCounterText" Text="—" FontWeight="Bold"/></StackPanel></Border>
+                                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Background="#F8FAFC"><StackPanel><TextBlock Text="کد شماره‌گذاری" Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ReceiptTransferText" Text="—" FontWeight="Bold"/></StackPanel></Border>
+                                        </Grid>
+                                        <Border Style="{StaticResource CardStyle}" Margin="26,10"><DockPanel><StackPanel DockPanel.Dock="Left" Margin="20,0"><TextBlock Text="سری" Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ReceiptSeriesText" Text="—" FontSize="22" FontWeight="Bold"/></StackPanel><StackPanel><TextBlock Text="شماره پلاک" Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ReceiptPlateText" Text="—" FontSize="28" FontWeight="Bold"/></StackPanel></DockPanel></Border>
+                                        <Border Background="#0F172A" Margin="26,8" Padding="18,12"><StackPanel><TextBlock Text="کد نهایی رزرو شما" Foreground="#94A3B8"/><TextBlock x:Name="ReceiptCodeText" Text="—" Foreground="#FACC15" FontFamily="Consolas" FontSize="28" FontWeight="Bold"/></StackPanel></Border>
+                                        <TextBlock Text="ارائه این کد به همراه کارت شناسایی به مسئول باجه الزامی است." Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" Margin="10"/>
+                                        <TextBlock x:Name="ReceiptAdvertisingText" TextWrapping="Wrap" TextAlignment="Center" FontWeight="Bold" Margin="24,10,24,20"/>
+                                    </StackPanel>
+                                </Border>
+                            </ScrollViewer>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </TabItem>
+
+            <TabItem Header="مشخصات">
+                <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel><Button Content="به‌روزرسانی مشخصات" Click="LoadProfile_Click" DockPanel.Dock="Right"/><TextBlock x:Name="ProfileStatusText" Text="پس از ورود به‌صورت خودکار بارگذاری می‌شود" Margin="12,0"/></DockPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel>
+                        <Border Background="{StaticResource PrimaryDarkBrush}" CornerRadius="7" Padding="20" Margin="8"><DockPanel>
+                            <Border DockPanel.Dock="Right" Background="White" Width="130" Height="150" Margin="0,0,0,0"><Image x:Name="ProfileImage" Stretch="UniformToFill"/></Border>
+                            <StackPanel Margin="20" VerticalAlignment="Center"><TextBlock x:Name="ProfileNameText" Text="مشخصات کاربر هنوز بارگذاری نشده است" Foreground="White" FontSize="24" FontWeight="Bold"/><TextBlock x:Name="ProfileMetaText" Foreground="#CBD5E1" Margin="0,8,0,0"/><TextBlock x:Name="ProfileContactText" Foreground="#94A3B8" Margin="0,8,0,0"/></StackPanel>
+                        </DockPanel></Border>
+                        <GroupBox Header="اطلاعات فردی"><ItemsControl x:Name="PersonalFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
+                        <GroupBox Header="اطلاعات اقامت"><ItemsControl x:Name="ResidenceFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
+                        <GroupBox Header="اطلاعات شغلی"><ItemsControl x:Name="JobFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
+                        <GroupBox Header="اطلاعات تکمیلی"><ItemsControl x:Name="ExtraFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
+                    </StackPanel></ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="پلاک‌ها">
+                <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button x:Name="AddPlateButton" Content="افزودن" Click="AddPlate_Click" Style="{StaticResource SuccessButton}"/><Button Content="بارگذاری لیست" Click="LoadPlates_Click"/></StackPanel><StackPanel Orientation="Horizontal"><Button Content="صفحه قبل" Click="PreviousPlatePage_Click" Style="{StaticResource SecondaryButton}"/><Button Content="صفحه بعد" Click="NextPlatePage_Click" Style="{StaticResource SecondaryButton}"/><TextBlock x:Name="PlatePageText" Text="صفحه ۱" Margin="10,0"/></StackPanel></DockPanel>
+                    <TextBlock x:Name="PlateAddInfoText" Grid.Row="1" Foreground="{StaticResource MutedBrush}" Margin="8,4" TextWrapping="Wrap"/>
+                    <DataGrid x:Name="PlatesGrid" Grid.Row="2" Margin="6">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="پلاک" Binding="{Binding Plate}" Width="2*"/>
+                            <DataGridTextColumn Header="تاریخ ثبت" Binding="{Binding Date}" Width="*"/>
+                            <DataGridTextColumn Header="وضعیت" Binding="{Binding Status}" Width="*"/>
+                            <DataGridTextColumn Header="علت رد" Binding="{Binding Reject}" Width="2*"/>
+                            <DataGridTemplateColumn Header="عملیات" Width="310"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><Button Content="ویرایش" Click="EditPlate_Click" MinWidth="65" MinHeight="28"/><Button Content="حذف" Click="DeletePlate_Click" Style="{StaticResource DangerButton}" MinWidth="60" MinHeight="28"/><Button Content="روی کارت" Click="ViewFrontPlateImage_Click" Style="{StaticResource SecondaryButton}" MinWidth="70" MinHeight="28"/><Button Content="پشت کارت" Click="ViewBackPlateImage_Click" Style="{StaticResource SecondaryButton}" MinWidth="70" MinHeight="28"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="نرخ خدمات">
+                <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Button Content="دریافت نرخ‌ها" Click="LoadPrices_Click" HorizontalAlignment="Right"/>
+                    <DataGrid x:Name="PricesGrid" Grid.Row="1" Margin="6"><DataGrid.Columns><DataGridTextColumn Header="شناسه" Binding="{Binding Id}" Width="150"/><DataGridTextColumn Header="نوع خدمت / خودرو" Binding="{Binding Type}" Width="*"/><DataGridTextColumn Header="مبلغ" Binding="{Binding Price}" Width="240"/></DataGrid.Columns></DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="تردد">
+                <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <DockPanel><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button Content="بارگذاری" Click="LoadTraffic_Click"/><Button Content="صفحه قبل" Click="PreviousTrafficPage_Click" Style="{StaticResource SecondaryButton}"/><Button Content="صفحه بعد" Click="NextTrafficPage_Click" Style="{StaticResource SecondaryButton}"/><TextBlock x:Name="TrafficPageText" Text="صفحه ۱" Margin="10,0"/></StackPanel><Button Content="نمایش/بستن جزئیات" Click="ToggleTrafficDetails_Click" Style="{StaticResource SecondaryButton}"/></DockPanel>
+                    <DataGrid x:Name="TrafficGrid" Grid.Row="1" Margin="6" SelectionChanged="TrafficGrid_SelectionChanged"><DataGrid.Columns><DataGridTextColumn Header="شناسه" Binding="{Binding Id}" Width="80"/><DataGridTextColumn Header="تاریخ / ساعت" Binding="{Binding Date}" Width="150"/><DataGridTextColumn Header="پلاک" Binding="{Binding Plate}" Width="120"/><DataGridTextColumn Header="تعداد" Binding="{Binding Quantity}" Width="70"/><DataGridTextColumn Header="نوع" Binding="{Binding Type}" Width="*"/><DataGridTextColumn Header="مبلغ" Binding="{Binding Price}" Width="110"/><DataGridTextColumn Header="پیگیری" Binding="{Binding Trace}" Width="150"/><DataGridTextColumn Header="پرداخت" Binding="{Binding Payment}" Width="100"/></DataGrid.Columns></DataGrid>
+                    <GroupBox x:Name="TrafficDetailsBox" Grid.Row="2" Header="جزئیات سطر انتخاب‌شده" Visibility="Collapsed"><TextBox x:Name="TrafficDetailsText" Height="130" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FlowDirection="LeftToRight"/></GroupBox>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="تشخیص API">
+                <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal"><Button Content="قرارداد مدیریت پلاک" Click="PlateContract_Click"/><Button Content="قرارداد ثبت نوبت" Click="ReservationContract_Click"/><Button Content="وضعیت ورود / CSRF" Click="AuthDiagnostics_Click"/></StackPanel>
+                    <TextBox x:Name="DiagnosticsText" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="14" FlowDirection="LeftToRight"/>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="درباره برنامه">
+                <ScrollViewer><StackPanel Margin="10">
+                    <Border Background="{StaticResource PrimaryDarkBrush}" CornerRadius="7" Padding="22"><DockPanel><Image Source="Assets/icon.ico" Width="84" Height="84" DockPanel.Dock="Right" Margin="0,0,18,0"/><StackPanel VerticalAlignment="Center"><TextBlock Text="سامانه نوبت قشم" Foreground="White" FontSize="25" FontWeight="Bold"/><TextBlock Text="نسخه بومی C# / WPF — نوبت‌دهی و پایش خدمات تعویض پلاک قشم" Foreground="#D2E2EE" Margin="0,8,0,0"/></StackPanel></DockPanel></Border>
+                    <GroupBox Header="سازنده"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="برنامه‌نویس" FontWeight="Bold"/><TextBlock Text="تماس" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="Farhad Farhadi"/><TextBlock Text="09361263005" Margin="0,8,0,0"/></StackPanel></Grid></GroupBox>
+                    <GroupBox Header="مشخصات سیستم"><DataGrid x:Name="SystemInfoGrid"><DataGrid.Columns><DataGridTextColumn Header="مشخصه" Binding="{Binding Label}" Width="220"/><DataGridTextColumn Header="مقدار" Binding="{Binding Value}" Width="*"/></DataGrid.Columns></DataGrid></GroupBox>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="پایش نوبت">
+                <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <GroupBox Header="نشست پایش"><DockPanel><ComboBox x:Name="MonitorAccountCombo" Width="360" DisplayMemberPath="Display" SelectionChanged="MonitorAccountCombo_SelectionChanged" DockPanel.Dock="Right"/><TextBlock x:Name="MonitorAccountStatusText" Text="نشست موردنظر برای پایش را انتخاب کنید." Margin="12,0"/></DockPanel></GroupBox>
+                    <GroupBox Grid.Row="1" Header="افزودن به پایش"><StackPanel>
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="280"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="130"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="130"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="110"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="SavedPlateMonitorCombo" DisplayMemberPath="Display" SelectionChanged="SavedPlateMonitorCombo_SelectionChanged"/>
+                            <Label Grid.Column="1" Content="کد شماره‌گذاری"/><TextBox x:Name="MonitorTransferText" Grid.Column="2" TextAlignment="Center"/>
+                            <Label Grid.Column="3" Content="شماره پلاک"/><TextBox x:Name="MonitorPlateText" Grid.Column="4" TextAlignment="Center"/>
+                            <Label Grid.Column="5" Content="سری"/><TextBox x:Name="MonitorSeriesText" Grid.Column="6" TextAlignment="Center"/>
+                            <Label Grid.Column="7" Content="فاصله (دقیقه)"/><TextBox x:Name="MonitorIntervalText" Grid.Column="8" Text="5" TextAlignment="Center"/>
+                        </Grid>
+                        <ItemsControl x:Name="MonitorServicesItems" Margin="4"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding Selected}" Margin="8,4"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                        <DockPanel><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button x:Name="AddMonitorButton" Content="افزودن و بررسی فوری" Click="AddMonitor_Click" IsEnabled="False" Style="{StaticResource SuccessButton}"/><Button x:Name="RefreshMonitorServicesButton" Content="به‌روزرسانی خدمات" Click="RefreshMonitorServices_Click" IsEnabled="False" Style="{StaticResource SecondaryButton}"/></StackPanel><StackPanel Orientation="Horizontal"><CheckBox x:Name="MonitorAlarmCheck" Content="هشدار صوتی" IsChecked="True" VerticalAlignment="Center" Margin="8"/><ComboBox x:Name="MonitorSoundCombo" Width="180" SelectedIndex="0"><ComboBoxItem Content="اعلان ویندوز"/><ComboBoxItem Content="هشدار ویندوز"/><ComboBoxItem Content="صدای خطا"/><ComboBoxItem Content="بدون صدا"/></ComboBox><Button Content="پخش نمونه" Click="PreviewSound_Click" Style="{StaticResource SecondaryButton}"/><CheckBox x:Name="MonitorBalloonCheck" Content="اعلان ویندوز" IsChecked="True" VerticalAlignment="Center" Margin="8"/><Label Content="تعداد پخش"/><TextBox x:Name="MonitorAlarmCountText" Text="3" Width="60" TextAlignment="Center"/></StackPanel></DockPanel>
+                    </StackPanel></GroupBox>
+                    <DataGrid x:Name="MonitorGrid" Grid.Row="2" Margin="6"><DataGrid.Columns><DataGridTextColumn Header="اطلاعات پلاک" Binding="{Binding Vehicle}" Width="2*"/><DataGridTextColumn Header="خدمت" Binding="{Binding ServiceName}" Width="2*"/><DataGridTextColumn Header="فاصله" Binding="{Binding Interval}" Width="90"/><DataGridTextColumn Header="آخرین بررسی" Binding="{Binding LastTime}" Width="110"/><DataGridTextColumn Header="بررسی بعدی" Binding="{Binding NextTime}" Width="120"/><DataGridTextColumn Header="هشدار" Binding="{Binding Alarm}" Width="160"/><DataGridTextColumn Header="نتیجه" Binding="{Binding Result}" Width="2*"/></DataGrid.Columns></DataGrid>
+                    <DockPanel Grid.Row="3"><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button Content="بررسی فوری" Click="CheckMonitorNow_Click"/><Button Content="توقف / ادامه" Click="ToggleMonitor_Click" Style="{StaticResource SecondaryButton}"/><Button Content="حذف سطر" Click="DeleteMonitor_Click" Style="{StaticResource DangerButton}"/></StackPanel><TextBlock x:Name="MonitorSummaryText" Text="هنوز موردی به پایش اضافه نشده است." Margin="12,0"/></DockPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <DockPanel Grid.Row="2" Margin="0,10,0,0">
+            <Button Content="گزارش عملیات" Click="ToggleLog_Click" Style="{StaticResource SecondaryButton}" DockPanel.Dock="Left"/>
+            <ProgressBar x:Name="BusyProgress" Width="150" Height="8" IsIndeterminate="True" Visibility="Collapsed" Margin="10" DockPanel.Dock="Left"/>
+            <Border Background="#E1EAF3" Padding="10,8" CornerRadius="4"><TextBlock x:Name="StatusText" Text="آماده"/></Border>
+        </DockPanel>
+    </Grid>
+</Window>
