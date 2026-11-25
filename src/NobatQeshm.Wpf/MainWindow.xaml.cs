@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private JsonObject _activeSession = [];
     private string _activeSavedCode = "";
     private string _captchaId = "";
+    private bool _captchaBusy;
     private JsonObject? _bookingSearch;
     private JsonObject _lastReceipt = [];
     private ReceiptAdvertising _advertising = AdvertisingStore.Load();
@@ -179,22 +180,69 @@ public partial class MainWindow : Window
     private async void RefreshCaptcha_Click(object sender, RoutedEventArgs e) => await RefreshCaptchaAsync();
     private async Task RefreshCaptchaAsync()
     {
-        _captchaId = ""; CaptchaText.Text = ""; CaptchaStatusText.Text = "در حال دریافت ...";
-        var result = await RunAsync("دریافت کد امنیتی", () => _client.GetCaptchaAsync(), false);
-        if (result is null) { CaptchaStatusText.Text = "دریافت ناموفق"; return; }
-        _captchaId = result.Text("captchaId");
-        var svg = result.Text("svg"); CaptchaBrowser.NavigateToString($"<html><body style='margin:0;overflow:hidden;display:flex;align-items:center;justify-content:center'>{svg}</body></html>");
-        var detected = result.Text("detectedCode");
-        if (AutoCaptchaCheck.IsChecked == true && detected.Length == 5) { CaptchaText.Text = detected; CaptchaStatusText.Text = "تشخیص خودکار موفق"; }
-        else CaptchaStatusText.Text = "کد را دستی وارد کنید";
+        if (_captchaBusy) return;
+        _captchaBusy = true;
+        RefreshCaptchaButton.IsEnabled = false;
+        RequestOtpButton.IsEnabled = false;
+        _captchaId = "";
+        CaptchaText.Clear();
+        CaptchaImage.Source = null;
+        CaptchaStatusText.Text = "در حال دریافت تصویر…";
+        try
+        {
+            var result = await RunAsync("دریافت تصویر کد امنیتی", async () =>
+            {
+                var data = await _client.GetCaptchaAsync();
+                CaptchaImage.Source = CaptchaImageRenderer.Render(data.Text("svg"));
+                return data;
+            }, showErrors: false);
+            if (result is null)
+            {
+                CaptchaStatusText.Text = "تصویر دریافت نشد. جزئیات خطا در نوار وضعیت است.";
+                return;
+            }
+
+            _captchaId = result.Text("captchaId");
+            var detected = result.Text("detectedCode");
+            if (AutoCaptchaCheck.IsChecked == true && detected.Length == 5) CaptchaText.Text = detected;
+            CaptchaStatusText.Text = CaptchaText.Text.Length == 0
+                ? "پنج رقم تصویر را وارد کنید." : "کد وارد شد. می‌توانید آن را با تصویر تطبیق دهید.";
+        }
+        finally
+        {
+            _captchaBusy = false;
+            RefreshCaptchaButton.IsEnabled = true;
+            RequestOtpButton.IsEnabled = _captchaId.Length > 0;
+        }
     }
     private async void RequestOtp_Click(object sender, RoutedEventArgs e)
     {
-        var code = JsonHelpers.NormalizeDigits(NationalCodeText.Text); var mobile = JsonHelpers.NormalizeDigits(MobileText.Text);
+        if (_captchaBusy || _captchaId.Length == 0) return;
+        var code = JsonHelpers.NormalizeDigits(NationalCodeText.Text);
+        var mobile = JsonHelpers.NormalizeDigits(MobileText.Text);
         if (code.Length == 0 || mobile.Length == 0) { Warn("کد ملی و شماره موبایل را وارد کنید."); return; }
-        var result = await RunAsync("ارسال کد فعال‌سازی", () => _client.RequestOtpAsync(code, mobile, _captchaId, CaptchaText.Text));
-        _captchaId = ""; if (result is not null) { LoginStatusTitle.Text = "پاسخ سامانه"; LoginStatusText.Text = result.Text("msg", "message"); }
-        await RefreshCaptchaAsync();
+        var captcha = JsonHelpers.NormalizeDigits(CaptchaText.Text);
+        if (captcha.Length != 5 || !captcha.All(char.IsAsciiDigit)) { Warn("پنج رقم تصویر کد امنیتی را وارد کنید."); return; }
+
+        var captchaId = _captchaId;
+        _captchaId = "";
+        _captchaBusy = true;
+        RefreshCaptchaButton.IsEnabled = false;
+        RequestOtpButton.IsEnabled = false;
+        try
+        {
+            var result = await RunAsync("ارسال کد فعال‌سازی", () => _client.RequestOtpAsync(code, mobile, captchaId, captcha));
+            if (result is null) return;
+            LoginStatusTitle.Text = "پاسخ سامانه";
+            LoginStatusText.Text = result.Text("msg", "message");
+            OtpText.Focus();
+        }
+        finally
+        {
+            _captchaBusy = false;
+            RefreshCaptchaButton.IsEnabled = true;
+            CaptchaStatusText.Text = "برای درخواست دوبارهٔ پیامک، «تصویر جدید» را بزنید.";
+        }
     }
     private async void CheckSession_Click(object sender, RoutedEventArgs e)
     {
@@ -278,6 +326,6 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (!_closing && MessageBox.Show(this, "آیا مطمئن هستید می‌خواهید برنامه را ببندید؟", "خروج", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) { e.Cancel = true; return; }
-        _closing = true; _monitorTimer.Stop(); _logWindow.Close(); _client.Dispose();
+        _closing = true; _monitorTimer.Stop(); _logWindow.Close(); _receiptPreview?.Dispose(); _client.Dispose();
     }
 }

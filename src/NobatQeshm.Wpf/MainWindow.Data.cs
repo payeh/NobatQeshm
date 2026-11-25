@@ -50,7 +50,10 @@ public partial class MainWindow
         var serviceName = (ServiceCombo.SelectedItem as ServiceOption)?.Name ?? "";
         var data = await RunAsync("ثبت نهایی نوبت", () => _client.ConfirmReservationAsync(_bookingSearch, selected.Source)); if (data is null) return;
         if (data.Int("status") != 200) { MessageBox.Show(this, data.ToJsonString(JsonHelpers.Options), "پاسخ ثبت نوبت"); return; }
-        if (data.Text("sessionTypeFa").Length == 0) data["sessionTypeFa"] = serviceName; _lastReceipt = data; RenderReceipt(); ReservationTabs.SelectedItem = ReceiptTab;
+        if (data.Text("sessionTypeFa").Length == 0) data["sessionTypeFa"] = serviceName;
+        _lastReceipt = data;
+        ReservationTabs.SelectedItem = ReceiptTab;
+        RenderReceipt();
         var user = QeshmClient.SessionUser(_activeSession); var code = user.Text("codeMelli"); var profile = _sessionStore.Get(code); string? saved = null;
         try { saved = ReceiptService.SaveToDesktop(data, profile?.Name ?? user.Text("name"), code, _advertising); } catch (Exception ex) { Log("ذخیره خودکار رسید ناموفق بود: " + ex.Message); }
         MessageBox.Show(this, $"نوبت ثبت شد. کد نهایی رزرو {data.Text("code", "reservationCode")}" + (saved is null ? "" : "\nرسید روی دسکتاپ ذخیره شد."), "ثبت نوبت", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -64,27 +67,6 @@ public partial class MainWindow
         _reservations.Clear(); foreach (var row in (data.Array("list") ?? []).OfType<JsonObject>()) _reservations.Add(new() { Source = row.CloneObject() }); ReservationCountText.Text = $"{_reservations.Count} نوبت";
     }
     private void CopyReservationCode_Click(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is ReservationRow row) { Clipboard.SetText(row.Code); SetStatus("کد رزرو کپی شد."); } }
-
-    private void RenderReceipt()
-    {
-        string V(params string[] keys) => _lastReceipt.TextOr("—", keys);
-        ReceiptServiceText.Text = V("sessionTypeFa"); var date = _lastReceipt.Text("sessionDate", "reservationDate"); ReceiptDateLabel.Text = "تاریخ نوبت"; if (date.Length == 0) { date = V("createdAt"); ReceiptDateLabel.Text = "زمان ثبت"; }
-        ReceiptDateText.Text = date.Length == 0 ? "—" : date; ReceiptTimeText.Text = $"{V("startTime")} - {V("endTime")}"; ReceiptCounterText.Text = V("counterNumber"); ReceiptTransferText.Text = V("transferCode", "vehicleTransferCode"); ReceiptPlateText.Text = V("plkNumber", "vehiclePlk"); ReceiptSeriesText.Text = V("plkSeriesNumber", "vehiclePlkSeries"); ReceiptCodeText.Text = V("code", "reservationCode"); ReceiptAdvertisingText.Text = _advertising.VisibleText;
-        PrintReceiptButton.IsEnabled = _lastReceipt.Count > 0; CopyReceiptImageButton.IsEnabled = _lastReceipt.Count > 0;
-    }
-    private void CopyReceiptCode_Click(object sender, RoutedEventArgs e) { var code = _lastReceipt.Text("code", "reservationCode"); if (code.Length == 0) { Warn("هنوز رسیدی موجود نیست."); return; } Clipboard.SetText(code); SetStatus("کد رزرو کپی شد."); }
-    private void CopyReceiptImage_Click(object sender, RoutedEventArgs e)
-    {
-        if (_lastReceipt.Count == 0) return; ReceiptCard.Measure(new Size(900, double.PositiveInfinity)); ReceiptCard.Arrange(new Rect(ReceiptCard.DesiredSize)); ReceiptCard.UpdateLayout();
-        var scale = 1.5; var bmp = new RenderTargetBitmap((int)(ReceiptCard.ActualWidth * scale), (int)(ReceiptCard.ActualHeight * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32); bmp.Render(ReceiptCard); Clipboard.SetImage(bmp); SetStatus("عکس رسید در کلیپ‌بورد کپی شد.");
-    }
-    private void PrintReceipt_Click(object sender, RoutedEventArgs e) { if (_lastReceipt.Count > 0) ReceiptService.OpenPrint(_lastReceipt, _advertising); }
-    private void SaveReceipt_Click(object sender, RoutedEventArgs e)
-    {
-        if (_lastReceipt.Count == 0) { Warn("هنوز رسیدی موجود نیست."); return; } var code = _lastReceipt.TextOr("receipt", "code", "reservationCode"); var dialog = new SaveFileDialog { Filter = "HTML|*.html", DefaultExt = ".html", FileName = $"qeshm-reservation-{code}.html" };
-        if (dialog.ShowDialog(this) == true) { File.WriteAllText(dialog.FileName, ReceiptService.BuildHtml(_lastReceipt, _advertising)); SetStatus("رسید HTML ذخیره شد."); }
-    }
-    private void ReceiptAdvertising_Click(object sender, RoutedEventArgs e) { var dialog = new TextEditDialog(_advertising) { Owner = this }; if (dialog.ShowDialog() == true) { _advertising = dialog.Value; AdvertisingStore.Save(_advertising); RenderReceipt(); } }
 
     private async void LoadPlates_Click(object sender, RoutedEventArgs e) => await LoadPlatesAsync();
     private async Task LoadPlatesAsync()

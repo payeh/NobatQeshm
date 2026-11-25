@@ -38,7 +38,7 @@ public sealed record ReceiptAdvertising(
     [property: JsonPropertyName("enabled")] bool Enabled = true,
     [property: JsonPropertyName("text")] string Text = ReceiptAdvertising.DefaultText)
 {
-    public const string DefaultText = "ارائه کلیه خدمات تعویض پلاک در قشم :\nکافی‌نت مهتاب و جزیره :\nنشانی: مجتمع فردوسی پلاک ۲۱۷۵ و ۲۱۵۶\nتلفن تماس: 90 910 910 076";
+    public const string DefaultText = "ارائه کلیه خدمات تعویض پلاک در قشم  :\nکافینت مهتاب و جزیره  :\nنشانی : مجتمع فردوسی پلاک 2175 و 2156\nتلفن تماس : 90 910 910 076";
     public string VisibleText => Enabled ? Text.Trim() : "";
 }
 

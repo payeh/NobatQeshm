@@ -39,6 +39,7 @@
 
 - Windows 10 نسخه 1809 یا جدیدتر
 - برای اجرای خروجی self-contained نیازی به نصب .NET نیست.
+- پیش‌نمایش و کپی تصویر رسید در برنامه از Microsoft Edge WebView2 Runtime استفاده می‌کنند. دکمهٔ «باز کردن در مرورگر» و ذخیرهٔ HTML از همان قالب اصلی رسید استفاده می‌کنند.
 - برای Build از سورس: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 بستهٔ Windows x64 را از [آخرین انتشار GitHub](https://github.com/payeh/NobatQeshm/releases/latest) دانلود و از ZIP خارج کنید. سپس `NobatQeshm.Wpf.exe` را اجرا کنید. مشکل باز نشدن پنجرهٔ اصلی در نسخهٔ `1.0.1` رفع شده است.
@@ -81,8 +82,10 @@ src/NobatQeshm.Wpf/
 ├── QeshmApi.cs              کلاینت API و پردازش تصویر
 ├── Storage.cs               ذخیره امن نشست و اطلاعات محلی
 ├── ReceiptService.cs        تولید و چاپ رسید HTML
+├── MainWindow.Receipt.cs    پیش‌نمایش و کپی تصویر رسید
+├── CaptchaImageRenderer.cs  نمایش تصویر کد امنیتی در WPF
 ├── Dialogs.cs               پنجره‌های مدیریت و ویرایش
-└── Assets/icon.ico          آیکون اصلی برنامه
+└── Assets/                  آیکون و قالب اصلی رسید پایتون
 ```
 
 ## امنیت و حریم خصوصی

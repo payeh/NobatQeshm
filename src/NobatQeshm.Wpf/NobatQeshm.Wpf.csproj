@@ -8,13 +8,15 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyTitle>سامانه نوبت قشم</AssemblyTitle>
     <Product>سامانه نوبت قشم</Product>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\icon.ico" />
+    <EmbeddedResource Include="Assets\receipt_template.html" LogicalName="NobatQeshm.ReceiptTemplate.html" />
   </ItemGroup>
 </Project>
 

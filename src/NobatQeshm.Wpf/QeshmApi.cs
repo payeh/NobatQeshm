@@ -67,6 +67,9 @@ public sealed class QeshmClient : IDisposable
             JsonNode? parsed = null;
             try { parsed = JsonNode.Parse(raw); } catch { }
             var obj = parsed as JsonObject ?? new JsonObject { ["raw"] = raw.Length > 10000 ? raw[..10000] : raw };
+            if (response.StatusCode == HttpStatusCode.TooManyRequests || obj.Int("status") == 429)
+                throw new QeshmApiException("سامانه تعداد درخواست‌ها را محدود کرده است. کمی صبر کنید و دوباره تلاش کنید.",
+                    HttpStatusCode.TooManyRequests, 429, obj);
             if (!response.IsSuccessStatusCode)
             {
                 var message = obj.Text("msg", "message");
@@ -122,13 +125,13 @@ public sealed class QeshmClient : IDisposable
                 ["codeMelli"] = nationalCode, ["mob"] = mobile, [field] = otp
             };
             try { await JsonRequestAsync(HttpMethod.Post, callbackPath, content: new FormUrlEncodedContent(form), token: token); }
-            catch (Exception ex) { last = ex; }
+            catch (Exception ex) when (ex is not QeshmApiException { HttpStatus: HttpStatusCode.TooManyRequests }) { last = ex; }
             try
             {
                 var session = await GetSessionAsync(token);
                 if (SessionIsValid(session)) return session;
             }
-            catch (Exception ex) { last = ex; }
+            catch (Exception ex) when (ex is not QeshmApiException { HttpStatus: HttpStatusCode.TooManyRequests }) { last = ex; }
         }
         throw new QeshmApiException($"تأیید OTP به نشست معتبر نرسید{(last is null ? "." : $": {last.Message}")}", inner: last);
     }
