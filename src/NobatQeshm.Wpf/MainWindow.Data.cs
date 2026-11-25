@@ -11,6 +11,8 @@ namespace NobatQeshm.Wpf;
 
 public partial class MainWindow
 {
+    private bool _confirmingReservation;
+
     private async void VerifyOtp_Click(object sender, RoutedEventArgs e) => await VerifyLoginAsync();
 
     private async void LoadServices_Click(object sender, RoutedEventArgs e) => await LoadServicesAsync();
@@ -45,22 +47,114 @@ public partial class MainWindow
             : $"{_available.Count} نوبت {service.Name} جهت نمایش یافت شد.";
         AvailabilityStatusText.Foreground = _available.Count == 0 ? Brushes.DarkGoldenrod : Brushes.SeaGreen; AvailabilityStatusBorder.Background = new SolidColorBrush(_available.Count == 0 ? Color.FromRgb(255, 251, 235) : Color.FromRgb(236, 253, 245));
     }
-    private void AvailableSessionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) => ConfirmReservationButton.IsEnabled = AvailableSessionsGrid.SelectedItem is AvailableSessionRow && _bookingSearch is not null;
+    private void AvailableSessionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateConfirmReservationButton();
+
+    private void UpdateConfirmReservationButton() =>
+        ConfirmReservationButton.IsEnabled = !_confirmingReservation && _bookingSearch is not null
+            && AvailableSessionsGrid.SelectedItem is AvailableSessionRow;
+
     private async void ConfirmReservation_Click(object sender, RoutedEventArgs e)
     {
-        if (AvailableSessionsGrid.SelectedItem is not AvailableSessionRow selected || _bookingSearch is null) { Warn("یک نوبت آزاد را انتخاب کنید."); return; }
+        if (_confirmingReservation) return;
+        if (AvailableSessionsGrid.SelectedItem is not AvailableSessionRow selected || _bookingSearch is not { } search)
+        {
+            Warn("یک نوبت آزاد را انتخاب کنید.");
+            return;
+        }
+        if (!QeshmClient.SessionIsValid(_activeSession))
+        {
+            Warn("برای ثبت نوبت ابتدا وارد حساب شخص شوید.");
+            return;
+        }
+
         var serviceName = (ServiceCombo.SelectedItem as ServiceOption)?.Name ?? "";
-        var data = await RunAsync("ثبت نهایی نوبت", () => _client.ConfirmReservationAsync(_bookingSearch, selected.Source)); if (data is null) return;
-        if (data.Int("status") != 200) { MessageBox.Show(this, data.ToJsonString(JsonHelpers.Options), "پاسخ ثبت نوبت"); return; }
-        if (data.Text("sessionTypeFa").Length == 0) data["sessionTypeFa"] = serviceName;
-        _lastReceipt = data;
-        ReservationTabs.SelectedItem = ReceiptTab;
-        RenderReceipt();
-        var user = QeshmClient.SessionUser(_activeSession); var code = user.Text("codeMelli"); var profile = _sessionStore.Get(code); string? saved = null;
-        try { saved = ReceiptService.SaveToDesktop(data, profile?.Name ?? user.Text("name"), code, _advertising); } catch (Exception ex) { Log("ذخیره خودکار رسید ناموفق بود: " + ex.Message); }
-        MessageBox.Show(this, $"نوبت ثبت شد. کد نهایی رزرو {data.Text("code", "reservationCode")}" + (saved is null ? "" : "\nرسید روی دسکتاپ ذخیره شد."), "ثبت نوبت", MessageBoxButton.OK, MessageBoxImage.Information);
-        await LoadReservationsAsync();
+        var user = QeshmClient.SessionUser(_activeSession);
+        var expectedUserId = user.Text("userId");
+        var expectedCode = user.TextOr(_activeSavedCode, "codeMelli", "MelliCode");
+        var cookies = _client.ExportCookies();
+        _confirmingReservation = true;
+        UpdateConfirmReservationButton();
+        try
+        {
+            using var bookingClient = new QeshmClient(_client.BaseUrl, Log);
+            bookingClient.ImportCookies(cookies);
+            var booking = await RunAsync("ثبت نهایی نوبت", async () =>
+            {
+                var identity = await ResolveBookingIdentityAsync(bookingClient, expectedUserId, expectedCode);
+                var response = await bookingClient.ConfirmReservationAsync(search, selected.Source);
+                return new { Response = response, identity.Name, identity.NationalCode };
+            });
+            if (booking is null) return;
+            var data = booking.Response;
+            if (data.Int("status") != 200)
+            {
+                MessageBox.Show(this, data.ToJsonString(JsonHelpers.Options), "پاسخ ثبت نوبت");
+                return;
+            }
+
+            if (data.Text("sessionTypeFa").Length == 0) data["sessionTypeFa"] = serviceName;
+            if (ReferenceEquals(_bookingSearch, search)) _available.Remove(selected);
+            _lastReceipt = data;
+            string message;
+            MessageBoxImage severity;
+            try
+            {
+                var path = ReceiptService.SaveToDesktop(data, booking.Name, booking.NationalCode, _advertising);
+                message = $"رسید روی دسکتاپ ذخیره شد.\n{Path.GetFileName(path)}";
+                severity = MessageBoxImage.Information;
+            }
+            catch (Exception ex)
+            {
+                Log("ذخیرهٔ خودکار رسید: " + ex.Message);
+                message = "ذخیرهٔ خودکار روی دسکتاپ انجام نشد. رسید از تب «آخرین رسید» قابل ذخیره است.";
+                severity = MessageBoxImage.Warning;
+            }
+
+            ReservationTabs.SelectedItem = ReceiptTab;
+            RenderReceipt();
+            MessageBox.Show(this, $"نوبت ثبت شد. کد نهایی رزرو {data.Text("code", "reservationCode")}\n{message}",
+                "ثبت نوبت", MessageBoxButton.OK, severity);
+            await LoadReservationsAsync();
+        }
+        finally
+        {
+            _confirmingReservation = false;
+            UpdateConfirmReservationButton();
+        }
     }
+
+    private async Task<(string Name, string NationalCode)> ResolveBookingIdentityAsync(
+        QeshmClient bookingClient, string expectedUserId, string expectedCode)
+    {
+        var user = QeshmClient.SessionUser(await bookingClient.GetSessionAsync());
+        if (user.Text("userId") != expectedUserId)
+            throw new QeshmApiException("نشست حساب تغییر کرده است. دوباره وارد حساب موردنظر شوید.");
+
+        var sessionCode = JsonHelpers.NormalizeDigits(user.Text("codeMelli", "MelliCode"));
+        expectedCode = JsonHelpers.NormalizeDigits(expectedCode);
+        if (sessionCode.Length > 0 && expectedCode.Length > 0 && sessionCode != expectedCode)
+            throw new QeshmApiException("کد ملی نشست با حساب انتخاب‌شده مطابقت ندارد.");
+
+        var code = sessionCode.Length > 0 ? sessionCode : expectedCode;
+        var name = FirstPersonName(_sessionStore.Get(code)?.Name, user.Text("name", "fullName"));
+        if (code.Length == 0 || name.Length == 0)
+        {
+            var person = QeshmClient.ExtractPerson(await bookingClient.GetProfileAsync());
+            var personCode = JsonHelpers.NormalizeDigits(person.Text("MelliCode", "codeMelli"));
+            if (personCode.Length > 0 && code.Length > 0 && personCode != code)
+                throw new QeshmApiException("کد ملی مشخصات کاربر با نشست ورود مطابقت ندارد.");
+            if (code.Length == 0) code = personCode;
+            name = FirstPersonName($"{person.Text("FirstName")} {person.Text("LastName")}", person.Text("name", "fullName"), name);
+        }
+
+        if (name.Length == 0 || code.Length == 0 || !code.All(char.IsAsciiDigit))
+            throw new QeshmApiException("برای ثبت نوبت و نام‌گذاری رسید، نام و کد ملی حساب باید در سامانه کامل باشد.");
+        return (name, code);
+    }
+
+    private static string FirstPersonName(params string?[] candidates) =>
+        candidates.Select(value => value?.Trim() ?? "")
+            .FirstOrDefault(value => value is not ("کاربر" or "نام نامشخص") && value.Any(char.IsLetter)) ?? "";
 
     private async void LoadReservations_Click(object sender, RoutedEventArgs e) => await LoadReservationsAsync();
     private async Task LoadReservationsAsync()

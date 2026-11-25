@@ -258,9 +258,13 @@ public partial class MainWindow : Window
     private void PersistSession(JsonObject? person = null)
     {
         if (!QeshmClient.SessionIsValid(_activeSession)) return;
-        var user = QeshmClient.SessionUser(_activeSession); var code = user.Text("codeMelli"); if (code.Length == 0) code = NationalCodeText.Text.Trim(); if (code.Length == 0) return;
-        var existing = _sessionStore.Get(code); var first = person?.Text("FirstName") ?? ""; var last = person?.Text("LastName") ?? "";
-        var name = $"{first} {last}".Trim(); if (name.Length == 0) name = existing?.Name ?? user.TextOr("کاربر", "name");
+        var user = QeshmClient.SessionUser(_activeSession);
+        var code = JsonHelpers.NormalizeDigits(user.TextOr(_activeSavedCode, "codeMelli", "MelliCode"));
+        if (code.Length == 0) return;
+        var existing = _sessionStore.Get(code);
+        var name = FirstPersonName($"{person?.Text("FirstName")} {person?.Text("LastName")}",
+            person?.Text("name", "fullName"), existing?.Name, user.Text("name", "fullName"));
+        if (name.Length == 0) name = "کاربر";
         var mobile = _client.LastLoginInputs.GetValueOrDefault("mob") ?? MobileText.Text.Trim(); if (mobile.Length == 0) mobile = existing?.Mobile ?? "";
         _sessionStore.Save(name, code, mobile, _activeSession.Text("expires"), _client.ExportCookies()); _activeSavedCode = code; RefreshSavedAccounts(code);
     }
@@ -279,30 +283,72 @@ public partial class MainWindow : Window
     private async void LoadProfile_Click(object sender, RoutedEventArgs e) => await LoadProfileAsync();
     private async Task LoadProfileAsync()
     {
+        var session = _activeSession;
         var data = await RunAsync("دریافت مشخصات کاربر", () => _client.GetProfileAsync()); if (data is null) return;
+        if (!ReferenceEquals(session, _activeSession)) return;
         var p = QeshmClient.ExtractPerson(data); if (p.Count == 0) { Warn("شیء مشخصات شخص در پاسخ پیدا نشد."); return; }
+        var sessionCode = JsonHelpers.NormalizeDigits(QeshmClient.SessionUser(session).TextOr(_activeSavedCode, "codeMelli", "MelliCode"));
+        var personCode = JsonHelpers.NormalizeDigits(p.Text("MelliCode", "codeMelli"));
+        if (sessionCode.Length > 0 && personCode.Length > 0 && sessionCode != personCode)
+        {
+            SetStatus("مشخصات دریافتی با حساب فعال مطابقت ندارد.");
+            return;
+        }
         string V(params string[] keys) => p.TextOr("—", keys);
         string D(params string[] keys) { var raw = V(keys); var digits = new string(raw.Where(char.IsDigit).ToArray()); return digits.Length == 8 ? $"{digits[..4]}/{digits[4..6]}/{digits[6..]}" : raw; }
-        var fullName = $"{V("FirstName")} {V("LastName")}".Replace("—", "").Trim(); if (fullName.Length == 0) fullName = "کاربر";
+        var fullName = FirstPersonName($"{p.Text("FirstName")} {p.Text("LastName")}", p.Text("name", "fullName"));
+        CopyProfileNameButton.IsEnabled = fullName.Length > 0;
+        if (fullName.Length == 0) fullName = "کاربر";
         ProfileNameText.Text = fullName;
-        ProfileMetaText.Text = $"{V("GroupTitle")}  •  {V("NationalityTitle")}";
-        ProfileContactText.Text = $"کد ملی: {V("MelliCode")}     موبایل: {V("CellPhone")}";
         ProfileStatusText.Text = $"نمایش مشخصات: {fullName}"; ProfileStatusText.Foreground = Brushes.SeaGreen; ProfileStatusText.FontWeight = FontWeights.Bold;
-        ProfileStatusText.Text = $"نمایش مشخصات: {fullName}"; ProfileStatusText.ToolTip = V("MelliCode");
-        ProfileStatusText.Tag = p;
         PersonalFields.ItemsSource = Fields(("نوع عضویت", V("GroupTitle")), ("ملیت", V("NationalityTitle")), ("نام", V("FirstName")), ("نام خانوادگی", V("LastName")), ("نام لاتین", V("LatinFirstName")), ("نام خانوادگی لاتین", V("LatinLastName")), ("نام پدر", V("Father")), ("کد ملی", V("MelliCode")), ("تاریخ اعتبار کد ملی", D("MelliExpiredDate2", "MelliExpiredDate")), ("شماره پاسپورت", V("PassportNum")), ("تاریخ اعتبار پاسپورت", D("PassportExpiredDate2", "PassportExpiredDate")), ("تاریخ تولد", D("BirthDate2", "BirthDate")), ("محل تولد", V("BirthPlaceTitle")), ("صادره", V("IdPlaceTitle")), ("تحصیلات", V("EducationTitle")), ("دین و مذهب", V("ReligionTitle")));
         ResidenceFields.ItemsSource = Fields(("کد پستی", V("PostalCode")), ("تلفن", V("Phone")), ("تلفن همراه", V("CellPhone")), ("فکس", V("Fax")), ("آدرس محل سکونت", V("StayAdr")));
         JobFields.ItemsSource = Fields(("شغل", V("Job")), ("کد پستی", V("JobPostalCode")), ("تلفن", V("JobPhone")), ("فکس", V("JobFax")), ("آدرس محل کار", V("JobAdr")));
         ExtraFields.ItemsSource = Fields(("وضعیت تأهل", p.Bool("IsSingle") ? "مجرد" : "متأهل"), ("جنسیت", p.Bool("IsMale") ? "مرد" : "زن"), ("مقیم", p.Bool("IsResident") ? "بله" : "خیر"), ("ایمیل", V("Email")), ("شماره بیمه", V("InsurNum")), ("اشتراک برق", V("EshterkBargh")));
-        var hero = FindName("ProfileHero") as FrameworkElement;
-        try { var photo = p.Text("userPic"); if (photo.Length > 0) { var bytes = photo.StartsWith("data:image") ? Convert.FromBase64String(photo[(photo.IndexOf(',') + 1)..]) : photo.Length > 300 && !photo.StartsWith("http") ? Convert.FromBase64String(photo) : await _client.DownloadAsync(photo); ProfilePhoto(bytes); } } catch (Exception ex) { Log("نمایش عکس پروفایل ناموفق بود: " + ex.Message); }
+        ProfileImage.Source = null;
+        CopyProfilePhotoButton.IsEnabled = false;
         PersistSession(p); UpdateSessionUi(fullName);
+        try
+        {
+            var photo = p.Text("userPic");
+            if (photo.Length == 0) return;
+            var bytes = photo.StartsWith("data:image")
+                ? Convert.FromBase64String(photo[(photo.IndexOf(',') + 1)..])
+                : photo.Length > 300 && !photo.StartsWith("http")
+                    ? Convert.FromBase64String(photo)
+                    : await _client.DownloadAsync(photo);
+            if (ReferenceEquals(session, _activeSession)) ProfilePhoto(bytes);
+        }
+        catch (Exception ex) { Log("نمایش عکس پروفایل ناموفق بود: " + ex.Message); }
     }
     private static List<ProfileField> Fields(params (string Label, string Value)[] fields) => fields.Select(x => new ProfileField { Label = x.Label, Value = x.Value }).ToList();
     private void ProfilePhoto(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes); var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.StreamSource = stream; image.DecodePixelWidth = 130; image.EndInit(); image.Freeze();
         ProfileImage.Source = image;
+        CopyProfilePhotoButton.IsEnabled = true;
+    }
+
+    private void CopyProfileValue_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            switch ((sender as Button)?.CommandParameter)
+            {
+                case string text when !string.IsNullOrWhiteSpace(text) && text != "—":
+                    Clipboard.SetText(text);
+                    SetStatus("مقدار در کلیپ‌بورد کپی شد.");
+                    break;
+                case BitmapSource image:
+                    Clipboard.SetImage(image);
+                    SetStatus("عکس کاربر در کلیپ‌بورد کپی شد.");
+                    break;
+            }
+        }
+        catch (ExternalException)
+        {
+            SetStatus("کلیپ‌بورد در دسترس نیست. دوباره تلاش کنید.");
+        }
     }
     private void ShowSystemInfo()
     {

@@ -66,23 +66,41 @@ public static class ReceiptService
 
     public static string SaveToDesktop(JsonObject data, string customerName, string nationalCode, ReceiptAdvertising advertising)
     {
-        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        var name = SafeFilePart(customerName, "نام نامشخص");
-        var code = SafeFilePart(nationalCode, "کد ملی نامشخص");
-        var html = BuildHtml(data, advertising);
-        for (var i = 1; ; i++)
-        {
-            var suffix = i == 1 ? "" : $" ({i})";
-            var path = Path.Combine(desktop, $"{name} - {code}{suffix}.html");
-            FileStream stream;
-            try { stream = File.Open(path, FileMode.CreateNew, FileAccess.Write); }
-            catch (IOException) when (File.Exists(path)) { continue; }
+        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory, Environment.SpecialFolderOption.Create);
+        if (string.IsNullOrEmpty(desktop)) throw new IOException("پوشهٔ دسکتاپ ویندوز در دسترس نیست.");
+        return SaveToFolder(desktop, data, customerName, nationalCode, advertising);
+    }
 
-            using (stream)
-            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+    internal static string SaveToFolder(string folder, JsonObject data, string customerName, string nationalCode, ReceiptAdvertising advertising)
+    {
+        var name = SafeFilePart(customerName, "");
+        var code = SafeFilePart(nationalCode, "");
+        if (name.Length == 0 || code.Length == 0)
+            throw new ArgumentException("نام یا کد ملی برای ذخیرهٔ رسید کامل نیست.");
+
+        var html = BuildHtml(data, advertising);
+        var temporaryPath = Path.Combine(folder, $".nobat-{Guid.NewGuid():N}.tmp");
+        var ownsTemporaryFile = false;
+        try
+        {
+            using (var stream = File.Open(temporaryPath, FileMode.CreateNew, FileAccess.Write))
+            {
+                ownsTemporaryFile = true;
+                using var writer = new StreamWriter(stream, new UTF8Encoding(false));
                 writer.Write(html);
-            return path;
+            }
+
+            for (var index = 1; ; index++)
+            {
+                var suffix = index == 1 ? "" : $" ({index})";
+                var path = Path.Combine(folder, $"{name} - {code}{suffix}.html");
+                try { File.Move(temporaryPath, path); }
+                catch (IOException) when (File.Exists(path) || Directory.Exists(path)) { continue; }
+                ownsTemporaryFile = false;
+                return path;
+            }
         }
+        finally { if (ownsTemporaryFile) File.Delete(temporaryPath); }
     }
 
     public static string SafeFilePart(string value, string fallback)

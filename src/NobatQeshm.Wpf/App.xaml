@@ -17,6 +17,7 @@
             <Setter Property="FlowDirection" Value="RightToLeft"/>
             <Setter Property="Background" Value="{StaticResource PageBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Icon" Value="pack://application:,,,/NobatQeshm.Wpf;component/Assets/icon.ico"/>
         </Style>
         <Style TargetType="Window" BasedOn="{StaticResource PersianWindow}"/>
         <Style TargetType="local:PlateEditorWindow" BasedOn="{StaticResource PersianWindow}"/>

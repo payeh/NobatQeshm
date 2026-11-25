@@ -14,18 +14,19 @@ public partial class AppointmentNotification : Window
         NotificationTitle.Text = title;
         NotificationMessage.Text = message;
         _open = open;
-        var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - Width - 12;
-        Top = workArea.Bottom - 215;
         _timer.Tick += (_, _) => Close();
         Closed += (_, _) => _timer.Stop();
     }
 
-    private void Notification_Loaded(object sender, RoutedEventArgs e)
+    internal void MeasureForWorkArea(Size available)
     {
-        Top = Math.Max(SystemParameters.WorkArea.Top, SystemParameters.WorkArea.Bottom - ActualHeight - 12);
-        _timer.Start();
+        Width = Math.Min(390, available.Width);
+        var surface = (FrameworkElement)Content;
+        surface.Measure(new Size(Width, available.Height));
+        Height = Math.Ceiling(surface.DesiredSize.Height);
     }
+
+    private void Notification_Loaded(object sender, RoutedEventArgs e) => _timer.Start();
 
     private void Dismiss_Click(object sender, RoutedEventArgs e) => Close();
 

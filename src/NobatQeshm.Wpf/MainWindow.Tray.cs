@@ -10,7 +10,7 @@ public partial class MainWindow
     private WindowState _lastVisibleState = WindowState.Normal;
     private bool _allowWindowClose;
     private readonly Queue<(string Title, string Message)> _notifications = new();
-    private AppointmentNotification? _currentNotification;
+    private readonly List<AppointmentNotification> _visibleNotifications = [];
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
     {
@@ -86,7 +86,7 @@ public partial class MainWindow
         _monitorTimer.Stop();
         _alarmCancellation.Cancel();
         _notifications.Clear();
-        _currentNotification?.Close();
+        foreach (var notification in _visibleNotifications.ToArray()) notification.Close();
         _logWindow.Close();
         _receiptPreview?.Dispose();
         _client.Dispose();
@@ -103,19 +103,45 @@ public partial class MainWindow
     {
         if (_closing) return;
         _notifications.Enqueue((title, message));
-        ShowNextNotification();
+        ArrangeMonitorNotifications();
     }
 
-    private void ShowNextNotification()
+    private void ArrangeMonitorNotifications()
     {
-        if (_closing || _currentNotification is not null || !_notifications.TryDequeue(out var next)) return;
-        var notification = new AppointmentNotification(next.Title, next.Message, OpenMonitoring);
-        _currentNotification = notification;
-        notification.Closed += (_, _) =>
+        if (_closing) return;
+        const double margin = 12;
+        const double gap = 7;
+        var workArea = SystemParameters.WorkArea;
+        var bottom = workArea.Bottom - margin;
+        foreach (var popup in _visibleNotifications)
         {
-            _currentNotification = null;
-            if (!_closing) Dispatcher.BeginInvoke(ShowNextNotification);
-        };
-        notification.Show();
+            popup.Left = workArea.Right - margin - popup.Width;
+            popup.Top = bottom - popup.Height;
+            bottom = popup.Top - gap;
+        }
+
+        while (_notifications.TryPeek(out var next) && bottom > workArea.Top + margin)
+        {
+            var popup = new AppointmentNotification(next.Title, next.Message, OpenMonitoring);
+            popup.MeasureForWorkArea(new Size(workArea.Width - margin * 2, workArea.Height - margin * 2));
+            var top = bottom - popup.Height;
+            if (top < workArea.Top + margin)
+            {
+                popup.Close();
+                break;
+            }
+
+            _notifications.Dequeue();
+            popup.Left = workArea.Right - margin - popup.Width;
+            popup.Top = top;
+            bottom = top - gap;
+            _visibleNotifications.Add(popup);
+            popup.Closed += (_, _) =>
+            {
+                _visibleNotifications.Remove(popup);
+                if (!_closing) Dispatcher.BeginInvoke(ArrangeMonitorNotifications);
+            };
+            popup.Show();
+        }
     }
 }

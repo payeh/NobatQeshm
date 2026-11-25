@@ -115,6 +115,7 @@ public sealed class ProfileField
 {
     public string Label { get; init; } = "";
     public string Value { get; init; } = "—";
+    public bool HasValue => !string.IsNullOrWhiteSpace(Value) && Value != "—";
 }
 
 public sealed class ServiceOption

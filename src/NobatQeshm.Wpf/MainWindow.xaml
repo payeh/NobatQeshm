@@ -6,6 +6,37 @@
         Width="888" Height="822" MinWidth="800" MinHeight="640"
         WindowStartupLocation="CenterScreen" Closing="Window_Closing"
         SourceInitialized="Window_SourceInitialized" StateChanged="Window_StateChanged">
+    <Window.Resources>
+        <Style x:Key="ProfileCopyButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="MinWidth" Value="32"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <Path Data="M6,12 L3,12 L3,2 L11,2 L11,5 M6,5 H14 V15 H6 Z"
+                              Width="15" Height="15" Stretch="Uniform" FlowDirection="LeftToRight"
+                              Stroke="#1C537A" StrokeThickness="1.5" StrokeLineJoin="Round"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <ItemsPanelTemplate x:Key="ProfileFieldsPanel"><UniformGrid Columns="2"/></ItemsPanelTemplate>
+        <DataTemplate x:Key="ProfileFieldCard">
+            <Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Padding="9">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource ProfileCopyButton}" Content="{Binding Label}"
+                            CommandParameter="{Binding Value}" IsEnabled="{Binding HasValue}" Click="CopyProfileValue_Click"
+                            ToolTip="{Binding Label, StringFormat='کپی {0}'}"
+                            AutomationProperties.Name="{Binding Label, StringFormat='کپی {0}'}"/>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
     <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -289,13 +320,28 @@
                     <DockPanel><Button Content="به‌روزرسانی مشخصات" Click="LoadProfile_Click" DockPanel.Dock="Left"/><TextBlock x:Name="ProfileStatusText" Text="پس از ورود به‌صورت خودکار بارگذاری می‌شود" Margin="12,0"/></DockPanel>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel>
                         <Border Background="{StaticResource PrimaryDarkBrush}" CornerRadius="7" Padding="20" Margin="8"><DockPanel>
-                            <Border DockPanel.Dock="Left" Background="White" Width="130" Height="150" Margin="0,0,0,0"><Image x:Name="ProfileImage" Stretch="UniformToFill"/></Border>
-                            <StackPanel Margin="20" VerticalAlignment="Center"><TextBlock x:Name="ProfileNameText" Text="مشخصات کاربر هنوز بارگذاری نشده است" Foreground="White" FontSize="24" FontWeight="Bold"/><TextBlock x:Name="ProfileMetaText" Foreground="#CBD5E1" Margin="0,8,0,0"/><TextBlock x:Name="ProfileContactText" Foreground="#94A3B8" Margin="0,8,0,0"/></StackPanel>
+                            <StackPanel DockPanel.Dock="Left">
+                                <Border Background="White" Width="100" Height="120">
+                                    <Image x:Name="ProfileImage" Stretch="UniformToFill" FlowDirection="LeftToRight"/>
+                                </Border>
+                                <Button x:Name="CopyProfilePhotoButton" Style="{StaticResource ProfileCopyButton}"
+                                        Content="عکس" Click="CopyProfileValue_Click" IsEnabled="False"
+                                        HorizontalAlignment="Center" ToolTip="کپی عکس" AutomationProperties.Name="کپی عکس"
+                                        CommandParameter="{Binding Source, ElementName=ProfileImage}"/>
+                            </StackPanel>
+                            <DockPanel Margin="16" VerticalAlignment="Center">
+                                <Button x:Name="CopyProfileNameButton" DockPanel.Dock="Right" Style="{StaticResource ProfileCopyButton}"
+                                        Content="نام کامل" Click="CopyProfileValue_Click" IsEnabled="False"
+                                        ToolTip="کپی نام کامل" AutomationProperties.Name="کپی نام کامل"
+                                        CommandParameter="{Binding Text, ElementName=ProfileNameText}"/>
+                                <TextBlock x:Name="ProfileNameText" Text="مشخصات کاربر هنوز بارگذاری نشده است"
+                                           Foreground="White" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"/>
+                            </DockPanel>
                         </DockPanel></Border>
-                        <GroupBox Header="اطلاعات فردی"><ItemsControl x:Name="PersonalFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
-                        <GroupBox Header="اطلاعات اقامت"><ItemsControl x:Name="ResidenceFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
-                        <GroupBox Header="اطلاعات شغلی"><ItemsControl x:Name="JobFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
-                        <GroupBox Header="اطلاعات تکمیلی"><ItemsControl x:Name="ExtraFields"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource CardStyle}" Background="#F8FAFC" Width="450"><StackPanel><TextBlock Text="{Binding Label}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Value}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></GroupBox>
+                        <GroupBox Header="اطلاعات فردی"><ItemsControl x:Name="PersonalFields" ItemsPanel="{StaticResource ProfileFieldsPanel}" ItemTemplate="{StaticResource ProfileFieldCard}"/></GroupBox>
+                        <GroupBox Header="اطلاعات اقامت"><ItemsControl x:Name="ResidenceFields" ItemsPanel="{StaticResource ProfileFieldsPanel}" ItemTemplate="{StaticResource ProfileFieldCard}"/></GroupBox>
+                        <GroupBox Header="اطلاعات شغلی"><ItemsControl x:Name="JobFields" ItemsPanel="{StaticResource ProfileFieldsPanel}" ItemTemplate="{StaticResource ProfileFieldCard}"/></GroupBox>
+                        <GroupBox Header="اطلاعات تکمیلی"><ItemsControl x:Name="ExtraFields" ItemsPanel="{StaticResource ProfileFieldsPanel}" ItemTemplate="{StaticResource ProfileFieldCard}"/></GroupBox>
                     </StackPanel></ScrollViewer>
                 </Grid>
             </TabItem>
