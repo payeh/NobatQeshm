@@ -49,7 +49,6 @@ public partial class MainWindow : Window
         ReservationsGrid.ItemsSource = _reservations; AvailableSessionsGrid.ItemsSource = _available;
         MonitorGrid.ItemsSource = _monitors; MonitorServicesItems.ItemsSource = _monitorServices;
         MonitorServicesItems.ItemTemplate = BuildMonitorServiceTemplate();
-        _logWindow.Owner = this;
         _logWindow.Closing += (_, e) => { if (!_closing) { e.Cancel = true; _logWindow.Hide(); } };
         _monitorTimer.Tick += MonitorTimer_Tick;
         Loaded += MainWindow_Loaded;
@@ -126,7 +125,18 @@ public partial class MainWindow : Window
         });
     }
 
-    private void ToggleLog_Click(object sender, RoutedEventArgs e) { if (_logWindow.IsVisible) _logWindow.Hide(); else { _logWindow.Show(); _logWindow.Activate(); } }
+    private void ToggleLog_Click(object sender, RoutedEventArgs e)
+    {
+        if (_logWindow.IsVisible)
+        {
+            _logWindow.Hide();
+            return;
+        }
+
+        _logWindow.Owner ??= this;
+        _logWindow.Show();
+        _logWindow.Activate();
+    }
     private void ManageSavedPlates_Click(object sender, RoutedEventArgs e) => new SavedPlatesWindow(_savedPlateStore, VerifySavedPlateAsync) { Owner = this, Changed = RefreshSavedPlates }.ShowDialog();
     private async Task<SavedPlate> VerifySavedPlateAsync(SavedPlate plate, SavedPlate? original)
     {
@@ -261,7 +271,8 @@ public partial class MainWindow : Window
     private void ShowSystemInfo()
     {
         var mem = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
-        SystemInfoGrid.ItemsSource = Fields(("سیستم‌عامل", RuntimeInformation.OSDescription), ("پردازنده", Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "—"), ("پردازنده‌های منطقی", Environment.ProcessorCount.ToString()), ("معماری", RuntimeInformation.OSArchitecture.ToString()), ("حافظه رم قابل استفاده", mem > 0 ? $"{mem / 1024d / 1024 / 1024:0.0} GiB" : "—"), ("نسخه .NET", Environment.Version.ToString()), ("نسخه برنامه", "1.0.0"));
+        var appVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "—";
+        SystemInfoGrid.ItemsSource = Fields(("سیستم‌عامل", RuntimeInformation.OSDescription), ("پردازنده", Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "—"), ("پردازنده‌های منطقی", Environment.ProcessorCount.ToString()), ("معماری", RuntimeInformation.OSArchitecture.ToString()), ("حافظه رم قابل استفاده", mem > 0 ? $"{mem / 1024d / 1024 / 1024:0.0} GiB" : "—"), ("نسخه .NET", Environment.Version.ToString()), ("نسخه برنامه", appVersion));
     }
     private void Warn(string text) => MessageBox.Show(this, text, "توجه", MessageBoxButton.OK, MessageBoxImage.Warning);
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)

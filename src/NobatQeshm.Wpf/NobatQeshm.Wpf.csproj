@@ -8,9 +8,7 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyTitle>سامانه نوبت قشم</AssemblyTitle>
     <Product>سامانه نوبت قشم</Product>
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Version>1.0.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />

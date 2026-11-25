@@ -41,6 +41,8 @@
 - برای اجرای خروجی self-contained نیازی به نصب .NET نیست.
 - برای Build از سورس: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
+بستهٔ Windows x64 را از [آخرین انتشار GitHub](https://github.com/payeh/NobatQeshm/releases/latest) دانلود و از ZIP خارج کنید. سپس `NobatQeshm.Wpf.exe` را اجرا کنید. مشکل باز نشدن پنجرهٔ اصلی در نسخهٔ `1.0.1` رفع شده است.
+
 ## Build
 
 ```powershell
@@ -56,6 +58,7 @@ dotnet publish .\src\NobatQeshm.Wpf\NobatQeshm.Wpf.csproj `
   -r win-x64 `
   --self-contained true `
   -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:DebugType=None `
   -p:DebugSymbols=false `
   -o .\release\win-x64
