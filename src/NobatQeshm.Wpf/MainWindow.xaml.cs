@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private ReceiptAdvertising _advertising = AdvertisingStore.Load();
     private int _busyCount;
     private bool _closing;
+    private bool _activationLocked;
     private int _platePage = 1, _platePages = 1, _trafficPage = 1, _trafficPages = 1;
     private bool _plateCanAdd;
 
@@ -100,6 +101,7 @@ public partial class MainWindow : Window
 
     private async Task<T?> RunAsync<T>(string title, Func<Task<T>> work, bool showErrors = true)
     {
+        if (_activationLocked) return default;
         Busy(true, title);
         try { var result = await work(); SetStatus($"{title} انجام شد."); return result; }
         catch (OperationCanceledException) { SetStatus($"{title} لغو شد."); }
@@ -357,4 +359,20 @@ public partial class MainWindow : Window
         SystemInfoGrid.ItemsSource = Fields(("سیستم‌عامل", RuntimeInformation.OSDescription), ("پردازنده", Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "—"), ("پردازنده‌های منطقی", Environment.ProcessorCount.ToString()), ("معماری", RuntimeInformation.OSArchitecture.ToString()), ("حافظه رم قابل استفاده", mem > 0 ? $"{mem / 1024d / 1024 / 1024:0.0} GiB" : "—"), ("نسخه .NET", Environment.Version.ToString()), ("نسخه برنامه", appVersion));
     }
     private void Warn(string text) => MessageBox.Show(this, text, "توجه", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+    internal void SetActivationLocked(bool locked)
+    {
+        _activationLocked = locked;
+        IsEnabled = !locked;
+        if (locked)
+        {
+            _monitorTimer.Stop();
+            _notifications.Clear();
+            foreach (var notification in _visibleNotifications.ToArray()) notification.Close();
+        }
+        else if (!_closing)
+        {
+            _monitorTimer.Start();
+        }
+    }
 }

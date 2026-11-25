@@ -8,11 +8,12 @@ public partial class AppointmentNotification : Window
     private readonly Action _open;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(9) };
 
-    public AppointmentNotification(string title, string message, Action open)
+    public AppointmentNotification(string title, string message, string openLabel, Action open)
     {
         InitializeComponent();
         NotificationTitle.Text = title;
         NotificationMessage.Text = message;
+        OpenButton.Content = openLabel;
         _open = open;
         _timer.Tick += (_, _) => Close();
         Closed += (_, _) => _timer.Stop();

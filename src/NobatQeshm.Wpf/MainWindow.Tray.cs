@@ -9,7 +9,7 @@ public partial class MainWindow
     private Forms.NotifyIcon? _trayIcon;
     private WindowState _lastVisibleState = WindowState.Normal;
     private bool _allowWindowClose;
-    private readonly Queue<(string Title, string Message)> _notifications = new();
+    private readonly Queue<(string Title, string Message, string OpenLabel, Action Open)> _notifications = new();
     private readonly List<AppointmentNotification> _visibleNotifications = [];
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -46,14 +46,15 @@ public partial class MainWindow
 
     private void HideToTray()
     {
-        if (_closing || _trayIcon is null) return;
+        if (_closing || _trayIcon is null || !IsVisible) return;
         _logWindow.Hide();
         Hide();
+        ShowNotification("من اینجام، نگران نباش", "پایش نوبت در سینی ویندوز ادامه دارد.", "باز کردن برنامه", RestoreFromTray);
     }
 
     private void RestoreFromTray()
     {
-        if (_closing) return;
+        if (_closing || _activationLocked) return;
         if (!IsVisible) Show();
         if (WindowState == WindowState.Minimized) WindowState = _lastVisibleState;
         Activate();
@@ -61,6 +62,7 @@ public partial class MainWindow
 
     private void OpenMonitoring()
     {
+        if (_closing || _activationLocked) return;
         RestoreFromTray();
         MainTabs.SelectedItem = MonitorTab;
     }
@@ -99,16 +101,19 @@ public partial class MainWindow
         _trayIcon = null;
     }
 
-    private void ShowMonitorNotification(string title, string message)
+    private void ShowMonitorNotification(string title, string message) =>
+        ShowNotification(title, message, "باز کردن پایش", OpenMonitoring);
+
+    private void ShowNotification(string title, string message, string openLabel, Action open)
     {
-        if (_closing) return;
-        _notifications.Enqueue((title, message));
+        if (_closing || _activationLocked) return;
+        _notifications.Enqueue((title, message, openLabel, open));
         ArrangeMonitorNotifications();
     }
 
     private void ArrangeMonitorNotifications()
     {
-        if (_closing) return;
+        if (_closing || _activationLocked) return;
         const double margin = 12;
         const double gap = 7;
         var workArea = SystemParameters.WorkArea;
@@ -122,7 +127,7 @@ public partial class MainWindow
 
         while (_notifications.TryPeek(out var next) && bottom > workArea.Top + margin)
         {
-            var popup = new AppointmentNotification(next.Title, next.Message, OpenMonitoring);
+            var popup = new AppointmentNotification(next.Title, next.Message, next.OpenLabel, next.Open);
             popup.MeasureForWorkArea(new Size(workArea.Width - margin * 2, workArea.Height - margin * 2));
             var top = bottom - popup.Height;
             if (top < workArea.Top + margin)

@@ -9,7 +9,7 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyTitle>سامانه نوبت قشم</AssemblyTitle>
     <Product>سامانه نوبت قشم</Product>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />

@@ -19,7 +19,7 @@
             <StackPanel Margin="13,10,13,10">
                 <TextBlock x:Name="NotificationTitle" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"/>
                 <TextBlock x:Name="NotificationMessage" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,4"/>
-                <Button Content="باز کردن پایش" Click="Open_Click" HorizontalAlignment="Left"
+                <Button x:Name="OpenButton" Click="Open_Click" HorizontalAlignment="Left"
                         Style="{StaticResource SecondaryButton}" MinHeight="29" Margin="0,4,0,0"/>
             </StackPanel>
         </StackPanel>

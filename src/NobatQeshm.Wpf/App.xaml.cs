@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace NobatQeshm.Wpf;
 
@@ -7,6 +8,7 @@ public partial class App : Application
 {
     private Mutex? _instanceMutex;
     private bool _ownsMutex;
+    private readonly DispatcherTimer _activationTimer = new() { Interval = TimeSpan.FromSeconds(15) };
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -25,14 +27,50 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             MessageBox.Show(args.ExceptionObject?.ToString() ?? "خطای ناشناخته", "خطای برنامه", MessageBoxButton.OK, MessageBoxImage.Error);
         base.OnStartup(e);
+
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var activation = new ActivationService();
+        var expiresAt = activation.ActiveUntilUtc();
+        if (expiresAt is null && new ActivationWindow(activation).ShowDialog() == true)
+            expiresAt = activation.ActiveUntilUtc();
+        if (expiresAt is null)
+        {
+            Shutdown();
+            return;
+        }
+
         var window = new MainWindow();
         MainWindow = window;
         SessionEnding += (_, _) => window.AllowSessionShutdown();
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         window.Show();
+        _activationTimer.Tick += (_, _) =>
+        {
+            if (expiresAt > DateTimeOffset.UtcNow) return;
+            _activationTimer.Stop();
+            window.SetActivationLocked(true);
+            var dialog = new ActivationWindow(activation);
+            if (window.IsVisible)
+            {
+                dialog.Owner = window;
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+            if (dialog.ShowDialog() == true) expiresAt = activation.ActiveUntilUtc();
+            if (expiresAt is not { } renewed || renewed <= DateTimeOffset.UtcNow)
+            {
+                window.AllowSessionShutdown();
+                Shutdown();
+                return;
+            }
+            window.SetActivationLocked(false);
+            _activationTimer.Start();
+        };
+        _activationTimer.Start();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _activationTimer.Stop();
         if (_ownsMutex) _instanceMutex?.ReleaseMutex();
         _instanceMutex?.Dispose();
         base.OnExit(e);

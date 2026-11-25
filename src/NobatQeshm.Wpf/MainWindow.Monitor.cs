@@ -69,16 +69,16 @@ public partial class MainWindow
         PlayAlarm(MonitorSoundCombo.SelectedItem as string ?? DefaultMonitorSound, 1);
     private async void MonitorTimer_Tick(object? sender, EventArgs e)
     {
-        if (_closing || _monitorCookies.Count == 0) return; var now = DateTime.Now;
+        if (_closing || _activationLocked || _monitorCookies.Count == 0) return; var now = DateTime.Now;
         foreach (var item in _monitors.Where(x => x.Enabled && !x.Checking && x.NextDue is not null && x.NextDue <= now).ToList()) await CheckMonitorItemAsync(item);
     }
     private async Task CheckMonitorItemAsync(MonitorItem item)
     {
-        if (_monitorCookies.Count == 0 || item.Checking || !item.Enabled || _closing) return; item.Checking = true; item.Refresh(); var revision = _monitorRevision; var snapshot = _monitorCookies.ToList();
+        if (_monitorCookies.Count == 0 || item.Checking || !item.Enabled || _closing || _activationLocked) return; item.Checking = true; item.Refresh(); var revision = _monitorRevision; var snapshot = _monitorCookies.ToList();
         try
         {
             using var client = new QeshmClient(logger: Log); client.ImportCookies(snapshot); var response = await client.ReservationAvailabilityAsync(item.ServiceId, item.TransferCode, item.PlateNumber, item.PlateSeries);
-            if (revision != _monitorRevision || !_monitors.Contains(item)) return; if (response.Int("status") == 401) throw new QeshmApiException("نشست پایش معتبر نیست.");
+            if (_activationLocked || revision != _monitorRevision || !_monitors.Contains(item)) return; if (response.Int("status") == 401) throw new QeshmApiException("نشست پایش معتبر نیست.");
             var count = response.Array("sessions")?.Count ?? 0; item.TotalSlots = count; item.LastResult = count > 0 ? $"نوبت موجود است؛ {count} بازه" : "نوبت موجود نیست";
             if (count > 0)
             {
