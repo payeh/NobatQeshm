@@ -107,14 +107,14 @@ public sealed class QeshmClient : IDisposable
     public Task<JsonObject> GetCsrfAsync(CancellationToken token = default) => JsonRequestAsync(HttpMethod.Get, "/api/auth/csrf", token: token);
     public Task<JsonObject> GetSessionAsync(CancellationToken token = default) => JsonRequestAsync(HttpMethod.Get, "/api/auth/session", token: token);
 
-    public async Task<JsonObject> VerifyOtpAsync(string nationalCode, string mobile, string otp, string otpField = "auto", CancellationToken token = default)
+    public async Task<JsonObject> VerifyOtpAsync(string nationalCode, string mobile, string otp, CancellationToken token = default)
     {
         var providers = await GetProvidersAsync(token);
         var csrf = (await GetCsrfAsync(token)).Text("csrfToken");
         if (string.IsNullOrWhiteSpace(csrf)) throw new QeshmApiException("csrfToken از سایت دریافت نشد.");
         var callback = providers.Object("credentials")?.Text("callbackUrl");
         var callbackPath = string.IsNullOrWhiteSpace(callback) ? "/api/auth/callback/credentials" : new Uri(callback, UriKind.RelativeOrAbsolute).IsAbsoluteUri ? new Uri(callback).PathAndQuery : callback;
-        var candidates = otpField != "auto" ? new[] { otpField } : new[] { "verifyCode", "verificationCode", "smsCode", "otp", "code", "activeCode" };
+        string[] candidates = ["verifyCode", "verificationCode", "smsCode", "otp", "code", "activeCode"];
         Exception? last = null;
         foreach (var field in candidates)
         {

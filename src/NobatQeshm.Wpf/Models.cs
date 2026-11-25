@@ -60,6 +60,17 @@ public sealed class PriceRow
     public string Id { get; init; } = "";
     public string Type { get; init; } = "";
     public string Price { get; init; } = "";
+
+    public string FormattedPrice
+    {
+        get
+        {
+            var normalized = JsonHelpers.NormalizeDigits(Price).Replace('٬', ',').Replace('،', ',').Replace('٫', '.');
+            var culture = System.Globalization.CultureInfo.InvariantCulture;
+            if (!decimal.TryParse(normalized, System.Globalization.NumberStyles.Number, culture, out var amount)) return Price;
+            return amount.ToString("#,0.############################", culture).Replace(',', '،');
+        }
+    }
 }
 
 public sealed class TrafficRow
@@ -85,6 +96,8 @@ public sealed class ReservationRow
     public string Time => $"{Source.Text("startTime")} – {Source.Text("endTime")}";
     public string CreatedAt => Source.Text("createdAt");
     public string Code => Source.Text("reservationCode", "code");
+    public bool HasCode => Code.Length > 0;
+    public string CodeLabel => $"کد رزرو نوبت: {(HasCode ? Code : "—")}";
 }
 
 public sealed class AvailableSessionRow

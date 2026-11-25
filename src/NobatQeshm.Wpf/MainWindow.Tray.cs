@@ -1,0 +1,121 @@
+using System.ComponentModel;
+using System.Windows;
+using Forms = System.Windows.Forms;
+
+namespace NobatQeshm.Wpf;
+
+public partial class MainWindow
+{
+    private Forms.NotifyIcon? _trayIcon;
+    private WindowState _lastVisibleState = WindowState.Normal;
+    private bool _allowWindowClose;
+    private readonly Queue<(string Title, string Message)> _notifications = new();
+    private AppointmentNotification? _currentNotification;
+
+    private void Window_SourceInitialized(object? sender, EventArgs e)
+    {
+        var menu = new Forms.ContextMenuStrip { RightToLeft = Forms.RightToLeft.Yes };
+        menu.Items.Add("باز کردن سامانه نوبت قشم", null, (_, _) => Dispatcher.BeginInvoke(RestoreFromTray));
+        menu.Items.Add("پایش نوبت", null, (_, _) => Dispatcher.BeginInvoke(OpenMonitoring));
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("خروج از برنامه", null, (_, _) => Dispatcher.BeginInvoke(ExitFromTray));
+
+        var resource = Application.GetResourceStream(new Uri("pack://application:,,,/NobatQeshm.Wpf;component/Assets/icon.ico"));
+        using var stream = resource.Stream;
+        using var icon = new System.Drawing.Icon(stream);
+        _trayIcon = new Forms.NotifyIcon
+        {
+            Icon = (System.Drawing.Icon)icon.Clone(),
+            Text = "سامانه نوبت قشم",
+            ContextMenuStrip = menu,
+            Visible = true
+        };
+        _trayIcon.MouseClick += (_, eventArgs) =>
+        {
+            if (eventArgs.Button == Forms.MouseButtons.Left) Dispatcher.BeginInvoke(RestoreFromTray);
+        };
+    }
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized)
+            HideToTray();
+        else
+            _lastVisibleState = WindowState;
+    }
+
+    private void HideToTray()
+    {
+        if (_closing || _trayIcon is null) return;
+        _logWindow.Hide();
+        Hide();
+    }
+
+    private void RestoreFromTray()
+    {
+        if (_closing) return;
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = _lastVisibleState;
+        Activate();
+    }
+
+    private void OpenMonitoring()
+    {
+        RestoreFromTray();
+        MainTabs.SelectedItem = MonitorTab;
+    }
+
+    internal void AllowSessionShutdown() => _allowWindowClose = true;
+
+    private void ExitFromTray()
+    {
+        _allowWindowClose = true;
+        Close();
+    }
+
+    private void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (!_allowWindowClose && _trayIcon is not null)
+        {
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
+
+        _closing = true;
+        _monitorTimer.Stop();
+        _alarmCancellation.Cancel();
+        _notifications.Clear();
+        _currentNotification?.Close();
+        _logWindow.Close();
+        _receiptPreview?.Dispose();
+        _client.Dispose();
+        if (_trayIcon is null) return;
+        _trayIcon.Visible = false;
+        _trayIcon.ContextMenuStrip?.Dispose();
+        var icon = _trayIcon.Icon;
+        _trayIcon.Dispose();
+        icon?.Dispose();
+        _trayIcon = null;
+    }
+
+    private void ShowMonitorNotification(string title, string message)
+    {
+        if (_closing) return;
+        _notifications.Enqueue((title, message));
+        ShowNextNotification();
+    }
+
+    private void ShowNextNotification()
+    {
+        if (_closing || _currentNotification is not null || !_notifications.TryDequeue(out var next)) return;
+        var notification = new AppointmentNotification(next.Title, next.Message, OpenMonitoring);
+        _currentNotification = notification;
+        notification.Closed += (_, _) =>
+        {
+            _currentNotification = null;
+            if (!_closing) Dispatcher.BeginInvoke(ShowNextNotification);
+        };
+        notification.Show();
+    }
+}

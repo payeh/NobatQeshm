@@ -47,9 +47,10 @@ public partial class MainWindow : Window
         SavedPlateBookingCombo.ItemsSource = _savedPlates;
         SavedPlateMonitorCombo.ItemsSource = _savedPlates;
         PlatesGrid.ItemsSource = _plates; PricesGrid.ItemsSource = _prices; TrafficGrid.ItemsSource = _traffic;
-        ReservationsGrid.ItemsSource = _reservations; AvailableSessionsGrid.ItemsSource = _available;
+        ReservationCards.ItemsSource = _reservations; AvailableSessionsGrid.ItemsSource = _available;
         MonitorGrid.ItemsSource = _monitors; MonitorServicesItems.ItemsSource = _monitorServices;
         MonitorServicesItems.ItemTemplate = BuildMonitorServiceTemplate();
+        InitializeMonitorSounds();
         _logWindow.Closing += (_, e) => { if (!_closing) { e.Cancel = true; _logWindow.Hide(); } };
         _monitorTimer.Tick += MonitorTimer_Tick;
         Loaded += MainWindow_Loaded;
@@ -70,6 +71,7 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        Loaded -= MainWindow_Loaded;
         RefreshSavedAccounts(); RefreshSavedPlates(); _monitorTimer.Start();
         await RefreshCaptchaAsync();
         var last = _sessionStore.LastCode();
@@ -104,7 +106,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Log($"خطا در {title}: {ex}"); SetStatus($"خطا: {ex.Message}");
-            if (showErrors) MessageBox.Show(this, ex.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+            if (showErrors && IsVisible && !_closing) MessageBox.Show(this, ex.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally { Busy(false, ""); }
         return default;
@@ -244,21 +246,11 @@ public partial class MainWindow : Window
             CaptchaStatusText.Text = "برای درخواست دوبارهٔ پیامک، «تصویر جدید» را بزنید.";
         }
     }
-    private async void CheckSession_Click(object sender, RoutedEventArgs e)
-    {
-        var session = await RunAsync("بررسی نشست", () => _client.GetSessionAsync());
-        if (session is null) return;
-        if (!QeshmClient.SessionIsValid(session)) { MarkSessionExpired(); Warn("نشست ورود منقضی شده است. لطفاً مجدداً وارد شوید."); return; }
-        _activeSession = session; _activeSavedCode = QeshmClient.SessionUser(session).Text("codeMelli"); PersistSession(); UpdateSessionUi();
-    }
-    private async void VerifyLogin_Click(object sender, RoutedEventArgs e) => await VerifyLoginAsync();
     private async Task VerifyLoginAsync()
     {
         var code = JsonHelpers.NormalizeDigits(NationalCodeText.Text); var mobile = JsonHelpers.NormalizeDigits(MobileText.Text); var otp = OtpText.Password.Trim();
         if (code.Length == 0 || mobile.Length == 0 || otp.Length == 0) { Warn("کد ملی، موبایل و کد فعال‌سازی را وارد کنید."); return; }
-        var field = (OtpFieldCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? OtpFieldCombo.Text;
-        if (string.IsNullOrWhiteSpace(field)) field = "auto";
-        var session = await RunAsync("تأیید کد فعال‌سازی و تشکیل نشست", () => _client.VerifyOtpAsync(code, mobile, otp, field));
+        var session = await RunAsync("تأیید کد فعال‌سازی و تشکیل نشست", () => _client.VerifyOtpAsync(code, mobile, otp));
         if (session is null) return;
         _activeSession = session; _activeSavedCode = code; PersistSession(); UpdateSessionUi(); LoginStatusTitle.Text = "ورود موفق"; LoginStatusTitle.Foreground = Brushes.SeaGreen; LoginStatusText.Text = "نشست به‌صورت امن ذخیره شد. اطلاعات در حال بارگذاری است.";
         await AutoLoadUserDataAsync();
@@ -277,10 +269,6 @@ public partial class MainWindow : Window
         var user = QeshmClient.SessionUser(_activeSession); var code = user.Text("codeMelli"); var saved = _sessionStore.Get(code); var name = displayName.Length > 0 ? displayName : saved?.Name ?? "";
         SessionHeaderText.Text = $"وارد شده‌اید{(name.Length > 0 ? $" | {name}" : "")}{(code.Length > 0 ? $" | {code}" : "")}";
         LoginStatusTitle.Text = "نشست معتبر است"; LoginStatusTitle.Foreground = Brushes.SeaGreen; LoginStatusText.Text = "ورود فعال است و نیازی به دریافت مجدد OTP نیست.";
-    }
-    private void MarkSessionExpired()
-    {
-        var code = _activeSavedCode; if (code.Length > 0) _sessionStore.MarkExpired(code); _client.ClearAuthCookies(); _activeSession = []; _activeSavedCode = ""; SessionHeaderText.Text = "نشست منقضی شده"; RefreshSavedAccounts(code);
     }
     private async Task AutoLoadUserDataAsync()
     {
@@ -323,9 +311,4 @@ public partial class MainWindow : Window
         SystemInfoGrid.ItemsSource = Fields(("سیستم‌عامل", RuntimeInformation.OSDescription), ("پردازنده", Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "—"), ("پردازنده‌های منطقی", Environment.ProcessorCount.ToString()), ("معماری", RuntimeInformation.OSArchitecture.ToString()), ("حافظه رم قابل استفاده", mem > 0 ? $"{mem / 1024d / 1024 / 1024:0.0} GiB" : "—"), ("نسخه .NET", Environment.Version.ToString()), ("نسخه برنامه", appVersion));
     }
     private void Warn(string text) => MessageBox.Show(this, text, "توجه", MessageBoxButton.OK, MessageBoxImage.Warning);
-    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
-    {
-        if (!_closing && MessageBox.Show(this, "آیا مطمئن هستید می‌خواهید برنامه را ببندید؟", "خروج", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) { e.Cancel = true; return; }
-        _closing = true; _monitorTimer.Stop(); _logWindow.Close(); _receiptPreview?.Dispose(); _client.Dispose();
-    }
 }

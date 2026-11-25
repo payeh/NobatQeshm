@@ -2,13 +2,16 @@ using System.Media;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Threading;
 
 namespace NobatQeshm.Wpf;
 
 public partial class MainWindow
 {
+    private const string DefaultMonitorSound = "اعلان ویندوز";
+    private const string SilentMonitorSound = "بدون صدا";
+    private readonly Dictionary<string, string> _windowsSounds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _alarmQueue = new(1, 1);
+    private readonly CancellationTokenSource _alarmCancellation = new();
     private List<CookieInfo> _monitorCookies = [];
     private int _monitorRevision;
 
@@ -48,7 +51,8 @@ public partial class MainWindow
         if (!int.TryParse(JsonHelpers.NormalizeDigits(MonitorIntervalText.Text), out var interval) || interval is < 1 or > 1440) { Warn("فاصله بررسی باید بین ۱ تا ۱۴۴۰ دقیقه باشد."); return; }
         if (!int.TryParse(JsonHelpers.NormalizeDigits(MonitorAlarmCountText.Text), out var alarmCount) || alarmCount is < 1 or > 20) { Warn("تعداد پخش هشدار را بین ۱ و ۲۰ وارد کنید."); return; }
         var services = _monitorServices.Where(x => x.Selected).ToList(); if (services.Count == 0) { Warn("حداقل یک خدمت را برای پایش انتخاب کنید."); return; }
-        var sound = (MonitorSoundCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "اعلان ویندوز"; var created = new List<MonitorItem>();
+        var sound = MonitorSoundCombo.SelectedItem as string ?? DefaultMonitorSound;
+        var created = new List<MonitorItem>();
         foreach (var service in services)
         {
             if (_monitors.Any(x => x.TransferCode == transfer && x.PlateNumber == plate && x.PlateSeries == series && x.ServiceId == service.Id)) continue;
@@ -61,7 +65,8 @@ public partial class MainWindow
     private async void CheckMonitorNow_Click(object sender, RoutedEventArgs e) { if (MonitorGrid.SelectedItem is MonitorItem item && !item.Checking) { item.Enabled = true; await CheckMonitorItemAsync(item); } else Warn("یک مورد را از جدول انتخاب کنید."); }
     private void ToggleMonitor_Click(object sender, RoutedEventArgs e) { if (MonitorGrid.SelectedItem is not MonitorItem item) { Warn("یک مورد را انتخاب کنید."); return; } item.Enabled = !item.Enabled; if (item.Enabled) { item.NextDue = DateTime.Now; item.LastResult = "در صف بررسی"; } item.Refresh(); UpdateMonitorSummary(); }
     private void DeleteMonitor_Click(object sender, RoutedEventArgs e) { if (MonitorGrid.SelectedItem is not MonitorItem item) { Warn("یک مورد را انتخاب کنید."); return; } _monitors.Remove(item); UpdateMonitorSummary(); }
-    private void PreviewSound_Click(object sender, RoutedEventArgs e) => PlayAlarm((MonitorSoundCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "اعلان ویندوز", 1);
+    private void PreviewSound_Click(object sender, RoutedEventArgs e) =>
+        PlayAlarm(MonitorSoundCombo.SelectedItem as string ?? DefaultMonitorSound, 1);
     private async void MonitorTimer_Tick(object? sender, EventArgs e)
     {
         if (_closing || _monitorCookies.Count == 0) return; var now = DateTime.Now;
@@ -78,27 +83,63 @@ public partial class MainWindow
             if (count > 0)
             {
                 if (item.AlarmEnabled) PlayAlarm(item.AlarmSound, item.AlarmCount);
-                if (item.BalloonEnabled) ShowBalloon("نوبت آزاد پیدا شد", $"{item.ServiceName}: {count} بازه | پلاک {item.PlateNumber} / {(item.PlateSeries.Length == 0 ? "—" : item.PlateSeries)}");
+                if (item.BalloonEnabled)
+                    ShowMonitorNotification("نوبت آزاد پیدا شد", $"{item.ServiceName} · {count} بازهٔ آزاد\nپلاک {item.PlateNumber} / {(item.PlateSeries.Length == 0 ? "—" : item.PlateSeries)}");
             }
         }
         catch (Exception ex) { item.TotalSlots = 0; item.LastResult = "خطا: " + ex.Message; Log("خطا در پایش نوبت: " + ex.Message); }
         finally { item.Checking = false; item.LastCheck = DateTime.Now; item.NextDue = DateTime.Now.AddMinutes(item.IntervalMinutes); item.Refresh(); UpdateMonitorSummary(); }
     }
-    private static void PlayAlarm(string name, int repeat)
+    private void InitializeMonitorSounds()
     {
-        if (name == "بدون صدا") return; var sound = name switch { "هشدار ویندوز" => SystemSounds.Exclamation, "صدای خطا" => SystemSounds.Hand, _ => SystemSounds.Asterisk };
-        _ = Task.Run(async () => { for (var i = 0; i < Math.Max(1, repeat); i++) { sound.Play(); if (i + 1 < repeat) await Task.Delay(900); } });
-    }
-    private static void ShowBalloon(string title, string message)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
+        try
         {
-            var panel = new StackPanel { Margin = new Thickness(16) };
-            panel.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.Bold, FontSize = 16, Foreground = Brushes.White });
-            panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 7, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(210, 226, 238)) });
-            var notice = new Window { Width = 390, Height = 135, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, Topmost = true, Background = new SolidColorBrush(Color.FromRgb(21, 56, 82)), Content = panel, FlowDirection = FlowDirection.RightToLeft };
-            notice.Left = SystemParameters.WorkArea.Right - notice.Width - 16; notice.Top = SystemParameters.WorkArea.Bottom - notice.Height - 16; notice.Show();
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) }; timer.Tick += (_, _) => { timer.Stop(); notice.Close(); }; timer.Start();
+            var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            foreach (var path in Directory.EnumerateFiles(Path.Combine(windows, "Media"), "*.wav").Order(StringComparer.OrdinalIgnoreCase))
+                _windowsSounds.TryAdd(Path.GetFileName(path), path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"فهرست صداهای ویندوز در دسترس نیست: {ex.Message}");
+        }
+        MonitorSoundCombo.ItemsSource = new[] { DefaultMonitorSound, "هشدار ویندوز", "صدای خطا", SilentMonitorSound }.Concat(_windowsSounds.Keys).ToArray();
+        MonitorSoundCombo.SelectedIndex = 0;
+    }
+
+    private void PlayAlarm(string name, int repeat)
+    {
+        if (name == SilentMonitorSound || _closing) return;
+        _windowsSounds.TryGetValue(name, out var path);
+        var cancellation = _alarmCancellation.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _alarmQueue.WaitAsync(cancellation);
+                try
+                {
+                    using var player = path is null ? null : new SoundPlayer(path);
+                    var systemSound = name switch
+                    {
+                        "هشدار ویندوز" => SystemSounds.Exclamation,
+                        "صدای خطا" => SystemSounds.Hand,
+                        _ => SystemSounds.Asterisk
+                    };
+                    for (var index = 0; index < repeat; index++)
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        if (player is null) systemSound.Play(); else player.PlaySync();
+                        if (index + 1 < repeat) await Task.Delay(player is null ? 900 : 150, cancellation);
+                    }
+                }
+                finally { _alarmQueue.Release(); }
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                if (!cancellation.IsCancellationRequested)
+                    _ = Dispatcher.InvokeAsync(() => { if (!_closing) Log($"پخش صدای پایش: {ex.Message}"); });
+            }
         });
     }
     private void UpdateMonitorSummary()

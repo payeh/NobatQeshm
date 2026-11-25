@@ -40,7 +40,9 @@ public partial class MainWindow
         if (data is null || !ReferenceEquals(_bookingSearch, search)) return;
         var vehicle = data.Object("vehicleInfo"); VehicleInfoText.Text = vehicle is null ? "" : $"خودرو: {vehicle.Text("type")} | کد: {vehicle.Text("transferCode")} | پلاک: {vehicle.Text("plkNumber")} / سری {vehicle.Text("plkSeriesNumber")}";
         var sessions = data.Array("sessions") ?? []; var i = 0; foreach (var row in sessions.OfType<JsonObject>()) _available.Add(new() { Index = ++i, Source = row.CloneObject() });
-        AvailabilityStatusText.Text = _available.Count == 0 ? "نوبتی جهت نمایش وجود ندارد." : $"{_available.Count} نوبت جهت نمایش دریافت شد.";
+        AvailabilityStatusText.Text = _available.Count == 0
+            ? $"برای «{service.Name}» نوبتی جهت نمایش یافت نشد."
+            : $"{_available.Count} نوبت {service.Name} جهت نمایش یافت شد.";
         AvailabilityStatusText.Foreground = _available.Count == 0 ? Brushes.DarkGoldenrod : Brushes.SeaGreen; AvailabilityStatusBorder.Background = new SolidColorBrush(_available.Count == 0 ? Color.FromRgb(255, 251, 235) : Color.FromRgb(236, 253, 245));
     }
     private void AvailableSessionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) => ConfirmReservationButton.IsEnabled = AvailableSessionsGrid.SelectedItem is AvailableSessionRow && _bookingSearch is not null;
@@ -66,7 +68,18 @@ public partial class MainWindow
         var data = await RunAsync("دریافت لیست نوبت‌ها", () => _client.ListReservationsAsync(), false); if (data is null) return;
         _reservations.Clear(); foreach (var row in (data.Array("list") ?? []).OfType<JsonObject>()) _reservations.Add(new() { Source = row.CloneObject() }); ReservationCountText.Text = $"{_reservations.Count} نوبت";
     }
-    private void CopyReservationCode_Click(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is ReservationRow row) { Clipboard.SetText(row.Code); SetStatus("کد رزرو کپی شد."); } }
+    private void ReservationCards_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var columns = e.NewSize.Width >= 600 ? 2 : 1;
+        if (!Equals(ReservationCards.Tag, columns)) ReservationCards.Tag = columns;
+    }
+
+    private void CopyReservationCode_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not ReservationRow { HasCode: true } row) return;
+        Clipboard.SetText(row.Code);
+        SetStatus("کد رزرو کپی شد.");
+    }
 
     private async void LoadPlates_Click(object sender, RoutedEventArgs e) => await LoadPlatesAsync();
     private async Task LoadPlatesAsync()

@@ -22,7 +22,7 @@ public sealed class PlateEditorWindow : Window
     public PlateEditorWindow(JsonObjectAdapter? row = null)
     {
         Title = row is null ? "افزودن پلاک جدید" : "ویرایش پلاک";
-        Width = 830; Height = 590; MinWidth = 720; MinHeight = 520;
+        Width = 830; Height = 665; MinWidth = 720; MinHeight = 565;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = (Brush)Application.Current.Resources["PageBrush"];
         FlowDirection = FlowDirection.RightToLeft;
@@ -42,17 +42,19 @@ public sealed class PlateEditorWindow : Window
         images.ColumnDefinitions.Add(new()); images.ColumnDefinitions.Add(new());
         images.Children.Add(ImageCard("تصویر روی کارت خودرو", _front, 0)); images.Children.Add(ImageCard("تصویر پشت کارت خودرو", _back, 1));
         Grid.SetRow(images, 2); root.Children.Add(images);
-        var footer = new DockPanel();
+        var footer = new StackPanel { Orientation = Orientation.Horizontal };
+        var save = new Button { Content = "ثبت اطلاعات", Style = (Style)Application.Current.Resources["SuccessButton"] };
+        save.Click += Save_Click;
+        footer.Children.Add(save);
         var cancel = new Button { Content = "انصراف", Style = (Style)Application.Current.Resources["SecondaryButton"] }; cancel.Click += (_, _) => DialogResult = false;
-        DockPanel.SetDock(cancel, Dock.Left); footer.Children.Add(cancel);
-        var save = new Button { Content = "ثبت اطلاعات", Style = (Style)Application.Current.Resources["SuccessButton"] }; save.Click += Save_Click; footer.Children.Add(save);
+        footer.Children.Add(cancel);
         Grid.SetRow(footer, 3); root.Children.Add(footer);
         Content = root;
     }
     private static TextBox Box(int max) => new() { Width = max == 3 ? 100 : 80, MaxLength = max, TextAlignment = TextAlignment.Center, FontSize = 18, FontWeight = FontWeights.Bold };
     private Border ImageCard(string title, TextBox path, int column)
     {
-        var preview = new Image { Height = 230, Stretch = Stretch.Uniform };
+        var preview = new Image { Height = 250, Stretch = Stretch.Uniform, FlowDirection = FlowDirection.LeftToRight };
         var choose = new Button { Content = "انتخاب / تغییر تصویر" };
         choose.Click += (_, _) =>
         {
@@ -64,7 +66,7 @@ public sealed class PlateEditorWindow : Window
         var remove = new Button { Content = "حذف تصویر", Style = (Style)Application.Current.Resources["DangerButton"] };
         remove.Click += (_, _) => { path.Text = ""; preview.Source = null; };
         var panel = new StackPanel(); panel.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.Bold, Margin = new Thickness(4) }); panel.Children.Add(preview);
-        path.IsReadOnly = true; panel.Children.Add(path); panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { choose, remove } });
+        path.IsReadOnly = true; panel.Children.Add(path); panel.Children.Add(new WrapPanel { Children = { choose, remove } });
         var border = new Border { Style = (Style)Application.Current.Resources["CardStyle"], Child = panel };
         Grid.SetColumn(border, column); return border;
     }
@@ -100,6 +102,8 @@ public sealed class SavedPlatesWindow : Window
         _grid.Columns.Add(new DataGridTextColumn { Header = "شماره پلاک", Binding = new System.Windows.Data.Binding("Number"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         _grid.Columns.Add(new DataGridTextColumn { Header = "سری", Binding = new System.Windows.Data.Binding("Series"), Width = 90 });
         _grid.Columns.Add(new DataGridTextColumn { Header = "تاریخ ثبت شمسی", Binding = new System.Windows.Data.Binding("PersianSavedDate"), Width = 140 });
+        foreach (var column in _grid.Columns.OfType<DataGridTextColumn>())
+            column.ElementStyle = (Style)Application.Current.Resources["TableCellText"];
         root.Children.Add(_grid);
         var buttons = new DockPanel();
         var close = Make("بستن", (_, _) => Close(), "SecondaryButton"); DockPanel.SetDock(close, Dock.Left); buttons.Children.Add(close);
@@ -134,7 +138,7 @@ public sealed class SavedPlateEditWindow : Window
     public SavedPlate Value { get; private set; } = new("", "", "", "");
     public SavedPlateEditWindow(SavedPlate? value)
     {
-        Title = value is null ? "ثبت پلاک جدید" : "ویرایش پلاک"; Width = 480; Height = 340; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Title = value is null ? "ثبت پلاک جدید" : "ویرایش پلاک"; Width = 480; Height = 400; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         _name.Text = value?.Name ?? ""; _transfer.Text = value?.TransferCode ?? ""; _number.Text = value?.Number ?? ""; _series.Text = value?.Series ?? "";
         var panel = new StackPanel { Margin = new Thickness(18) };
         foreach (var pair in new[] { ("نام پلاک", _name), ("کد شماره‌گذاری", _transfer), ("شماره پلاک", _number), ("سری پلاک (اختیاری)", _series) }) { panel.Children.Add(new TextBlock { Text = pair.Item1 }); panel.Children.Add(pair.Item2); }
