@@ -9,7 +9,7 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyTitle>سامانه نوبت قشم</AssemblyTitle>
     <Product>سامانه نوبت قشم</Product>
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />
@@ -22,6 +22,12 @@
   <ItemGroup>
     <Resource Include="Assets\icon.ico" />
     <EmbeddedResource Include="Assets\receipt_template.html" LogicalName="NobatQeshm.ReceiptTemplate.html" />
+    <EmbeddedResource Include="$(ActivationSmsKeyFile)" LogicalName="NobatQeshm.ActivationSmsKey"
+                      Condition="'$(ActivationSmsKeyFile)' != ''" />
   </ItemGroup>
+  <Target Name="RequireActivationSmsKeyForPublish" BeforeTargets="PrepareForPublish"
+          Condition="!Exists('$(ActivationSmsKeyFile)')">
+    <Error Text="Publishing requires ActivationSmsKeyFile to point to the SMS provider key file." />
+  </Target>
 </Project>
 
