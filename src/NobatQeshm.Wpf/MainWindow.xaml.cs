@@ -146,7 +146,8 @@ public partial class MainWindow : Window
     private void ManageSavedPlates_Click(object sender, RoutedEventArgs e) => new SavedPlatesWindow(_savedPlateStore, VerifySavedPlateAsync) { Owner = this, Changed = RefreshSavedPlates }.ShowDialog();
     private async Task<SavedPlate> VerifySavedPlateAsync(SavedPlate plate, SavedPlate? original)
     {
-        if (original is not null && original.TransferCode == plate.TransferCode && original.Number == plate.Number && original.Series == plate.Series) return plate;
+        if (original is not null && original.TransferCode == plate.TransferCode && original.Number == plate.Number && original.Series == plate.Series)
+            return plate with { VehicleName = original.VehicleName };
         if (!QeshmClient.SessionIsValid(_activeSession)) throw new QeshmApiException("برای بررسی پلاک، ابتدا از تب ورود وارد شوید.");
         var services = ServiceCombo.ItemsSource as IEnumerable<ServiceOption> ?? await _client.GetReservationServiceTypesAsync();
         var service = services.FirstOrDefault(x => x.Name.Contains("نقل و انتقال")) ?? services.FirstOrDefault() ?? throw new QeshmApiException("خدمت فعالی برای بررسی پلاک پیدا نشد.");

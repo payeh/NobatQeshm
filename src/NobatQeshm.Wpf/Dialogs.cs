@@ -135,15 +135,18 @@ public sealed class SavedPlatesWindow : Window
 
 public sealed class SavedPlateEditWindow : Window
 {
-    private readonly TextBox _name = new(), _vehicleName = new(), _transfer = new(), _number = new(), _series = new();
+    private readonly TextBox _name = new(), _transfer = new(), _number = new(), _series = new();
     public SavedPlate Value { get; private set; } = new("", "", "", "");
     public SavedPlateEditWindow(SavedPlate? value)
     {
         Title = value is null ? "ثبت پلاک جدید" : "ویرایش پلاک"; Width = 480; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         _name.Text = value?.Name ?? ""; _transfer.Text = value?.TransferCode ?? ""; _number.Text = value?.Number ?? ""; _series.Text = value?.Series ?? "";
-        _vehicleName.Text = value?.VehicleName ?? "";
         var panel = new StackPanel { Margin = new Thickness(18) };
-        foreach (var pair in new[] { ("نام پلاک", _name), ("نام خودرو (اختیاری)", _vehicleName), ("کد شماره‌گذاری", _transfer), ("شماره پلاک", _number), ("سری پلاک (اختیاری)", _series) }) { panel.Children.Add(new Label { Content = pair.Item1, Target = pair.Item2 }); panel.Children.Add(pair.Item2); }
+        foreach (var (label, field) in new[] { ("نام پلاک", _name), ("کد شماره‌گذاری", _transfer), ("شماره پلاک", _number), ("سری پلاک (اختیاری)", _series) })
+        {
+            panel.Children.Add(new Label { Content = label, Target = field });
+            panel.Children.Add(field);
+        }
         var buttons = new StackPanel { Orientation = Orientation.Horizontal }; var save = new Button { Content = "ذخیره", Style = (Style)Application.Current.Resources["SuccessButton"] }; save.Click += Save_Click;
         var cancel = new Button { Content = "انصراف", Style = (Style)Application.Current.Resources["SecondaryButton"] }; cancel.Click += (_, _) => DialogResult = false; buttons.Children.Add(save); buttons.Children.Add(cancel); panel.Children.Add(buttons); Content = panel;
     }
@@ -151,7 +154,7 @@ public sealed class SavedPlateEditWindow : Window
     {
         var transfer = JsonHelpers.NormalizeDigits(_transfer.Text); var number = JsonHelpers.NormalizeDigits(_number.Text); var series = JsonHelpers.NormalizeDigits(_series.Text);
         if (string.IsNullOrWhiteSpace(_name.Text) || !Regex.IsMatch(transfer, "^[0-9]+$") || !Regex.IsMatch(number, "^[0-9]+$") || (series.Length > 0 && !Regex.IsMatch(series, "^[0-9]+$"))) { MessageBox.Show(this, "نام، کد شماره‌گذاری و شماره پلاک را صحیح وارد کنید.", "ورودی", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-        Value = new(_name.Text.Trim(), transfer, number, series, DateTime.Today.ToString("yyyy-MM-dd"), _vehicleName.Text.Trim()); DialogResult = true;
+        Value = new(_name.Text.Trim(), transfer, number, series, DateTime.Today.ToString("yyyy-MM-dd")); DialogResult = true;
     }
 }
 
