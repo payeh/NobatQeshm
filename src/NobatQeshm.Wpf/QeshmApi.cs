@@ -154,7 +154,10 @@ public sealed class QeshmClient : IDisposable
         var vehicle = response.Object("vehicleInfo") ?? throw new QeshmApiException("سامانه مشخصات پلاک را تأیید نکرد.");
         var transfer = JsonHelpers.NormalizeDigits(vehicle.Text("transferCode")); var number = JsonHelpers.NormalizeDigits(vehicle.Text("plkNumber")); var series = JsonHelpers.NormalizeDigits(vehicle.Text("plkSeriesNumber"));
         if (transfer != plate.TransferCode || number != plate.Number || (plate.Series.Length > 0 && series != plate.Series)) throw new QeshmApiException("کد شماره‌گذاری، پلاک یا سری با اطلاعات سامانه مطابقت ندارد.");
-        return plate with { Series = series };
+        var vehicleName = string.IsNullOrWhiteSpace(plate.VehicleName)
+            ? vehicle.Text("type", "vehicleType", "vehicleName")
+            : plate.VehicleName;
+        return plate with { Series = series, VehicleName = vehicleName };
     }
 
     public async Task<List<ServiceOption>> GetReservationServiceTypesAsync(CancellationToken token = default)

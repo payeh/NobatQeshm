@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RestoreWindowSize(AppPaths.WindowSize);
         _client = new(logger: Log);
         SavedAccountsCombo.ItemsSource = _savedProfiles;
         MonitorAccountCombo.ItemsSource = _savedProfiles;
@@ -178,7 +179,7 @@ public partial class MainWindow : Window
     private void DeleteSession_Click(object sender, RoutedEventArgs e)
     {
         if (SavedAccountsCombo.SelectedItem is not SavedProfile p || MessageBox.Show(this, $"نشست ذخیره‌شده {p.Name} حذف شود؟", "حذف حساب", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        _sessionStore.Delete(p.NationalCode); if (_activeSavedCode == p.NationalCode) { _activeSavedCode = ""; _activeSession = []; _client.ClearAuthCookies(); } RefreshSavedAccounts();
+        _sessionStore.Delete(p.NationalCode); if (_activeSavedCode == p.NationalCode) { _activeSavedCode = ""; _activeSession = []; _client.ClearAuthCookies(); UpdateBookingAccountMessage(); } RefreshSavedAccounts();
     }
 
     private async void RefreshCaptcha_Click(object sender, RoutedEventArgs e) => await RefreshCaptchaAsync();
@@ -275,6 +276,7 @@ public partial class MainWindow : Window
         var user = QeshmClient.SessionUser(_activeSession); var code = user.Text("codeMelli"); var saved = _sessionStore.Get(code); var name = displayName.Length > 0 ? displayName : saved?.Name ?? "";
         SessionHeaderText.Text = $"وارد شده‌اید{(name.Length > 0 ? $" | {name}" : "")}{(code.Length > 0 ? $" | {code}" : "")}";
         LoginStatusTitle.Text = "نشست معتبر است"; LoginStatusTitle.Foreground = Brushes.SeaGreen; LoginStatusText.Text = "ورود فعال است و نیازی به دریافت مجدد OTP نیست.";
+        UpdateBookingAccountMessage();
     }
     private async Task AutoLoadUserDataAsync()
     {

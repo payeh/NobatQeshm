@@ -12,6 +12,8 @@ namespace NobatQeshm.Wpf;
 public partial class MainWindow
 {
     private bool _confirmingReservation;
+    private JsonObject? _bookingSession;
+    private string _availabilitySummary = "";
 
     private async void VerifyOtp_Click(object sender, RoutedEventArgs e) => await VerifyLoginAsync();
 
@@ -29,34 +31,79 @@ public partial class MainWindow
     }
     private void BookingInput_Changed(object sender, EventArgs e)
     {
-        if (_bookingSearch is null) return; _bookingSearch = null; _available.Clear(); ConfirmReservationButton.IsEnabled = false; AvailabilityStatusText.Text = "برای اطلاعات جدید، نوبت‌های آزاد را بررسی کنید.";
+        if (_bookingSearch is not null)
+            ResetBookingSearch("برای اطلاعات جدید، نوبت‌های آزاد را بررسی کنید.");
     }
+
+    private void ResetBookingSearch(string message)
+    {
+        _bookingSearch = null;
+        _bookingSession = null;
+        _availabilitySummary = "";
+        _available.Clear();
+        VehicleInfoText.Text = "";
+        AvailabilityStatusText.Text = message;
+        AvailabilityStatusText.Foreground = (Brush)FindResource("MutedBrush");
+        AvailabilityStatusBorder.Background = Brushes.WhiteSmoke;
+        UpdateConfirmReservationButton();
+    }
+
+    private void UpdateBookingAccountMessage()
+    {
+        if (_bookingSession is null) return;
+        if (!ReferenceEquals(_bookingSession, _activeSession))
+        {
+            ResetBookingSearch("حساب کاربری تغییر کرد. نوبت‌های آزاد را دوباره بررسی کنید.");
+            return;
+        }
+        if (_availabilitySummary.Length == 0) return;
+
+        var user = QeshmClient.SessionUser(_bookingSession);
+        var code = JsonHelpers.NormalizeDigits(user.TextOr(_activeSavedCode, "codeMelli", "MelliCode"));
+        var name = FirstPersonName(_sessionStore.Get(code)?.Name, user.Text("name", "fullName"));
+        var account = name.Length > 0 ? $"«{name}»" : "واردشده";
+        AvailabilityStatusText.Text = _available.Count == 0
+            ? _availabilitySummary
+            : $"{_availabilitySummary} این نوبت با حساب کاربری {account} گرفته می‌شود.";
+    }
+
     private async void CheckAvailability_Click(object sender, RoutedEventArgs e)
     {
         if (ServiceCombo.SelectedItem is not ServiceOption service) { Warn("ابتدا نوع خدمت‌ها را به‌روزرسانی کنید."); return; }
+        if (!QeshmClient.SessionIsValid(_activeSession)) { Warn("برای بررسی نوبت‌های آزاد وارد حساب کاربری شوید."); return; }
         var transfer = JsonHelpers.NormalizeDigits(TransferCodeText.Text); var plate = JsonHelpers.NormalizeDigits(ReservationPlateText.Text); var series = JsonHelpers.NormalizeDigits(ReservationSeriesText.Text);
         if (transfer.Length == 0 || plate.Length == 0) { Warn("کد شماره‌گذاری و شماره پلاک الزامی است."); return; }
         var search = new JsonObject { ["sessionTypeId"] = service.Id, ["transferCode"] = transfer, ["plkNumber"] = plate, ["plkSeriesNumber"] = series };
-        _bookingSearch = search; _available.Clear(); ConfirmReservationButton.IsEnabled = false;
+        ResetBookingSearch("در حال بررسی نوبت‌های آزاد…");
+        _bookingSearch = search;
+        _bookingSession = _activeSession;
         var data = await RunAsync("بررسی اطلاعات خودرو و نوبت‌های آزاد", () => _client.ReservationAvailabilityAsync(service.Id, transfer, plate, series));
-        if (data is null || !ReferenceEquals(_bookingSearch, search)) return;
+        if (!ReferenceEquals(_bookingSearch, search) || !ReferenceEquals(_bookingSession, _activeSession)) return;
+        if (data is null || data.Int("status") == 401)
+        {
+            ResetBookingSearch("بررسی نوبت‌های آزاد انجام نشد. وضعیت ورود و ارتباط را بررسی کنید.");
+            return;
+        }
         var vehicle = data.Object("vehicleInfo"); VehicleInfoText.Text = vehicle is null ? "" : $"خودرو: {vehicle.Text("type")} | کد: {vehicle.Text("transferCode")} | پلاک: {vehicle.Text("plkNumber")} / سری {vehicle.Text("plkSeriesNumber")}";
         var sessions = data.Array("sessions") ?? []; var i = 0; foreach (var row in sessions.OfType<JsonObject>()) _available.Add(new() { Index = ++i, Source = row.CloneObject() });
-        AvailabilityStatusText.Text = _available.Count == 0
+        _availabilitySummary = _available.Count == 0
             ? $"برای «{service.Name}» نوبتی جهت نمایش یافت نشد."
             : $"{_available.Count} نوبت {service.Name} جهت نمایش یافت شد.";
+        UpdateBookingAccountMessage();
         AvailabilityStatusText.Foreground = _available.Count == 0 ? Brushes.DarkGoldenrod : Brushes.SeaGreen; AvailabilityStatusBorder.Background = new SolidColorBrush(_available.Count == 0 ? Color.FromRgb(255, 251, 235) : Color.FromRgb(236, 253, 245));
     }
     private void AvailableSessionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateConfirmReservationButton();
 
     private void UpdateConfirmReservationButton() =>
         ConfirmReservationButton.IsEnabled = !_confirmingReservation && _bookingSearch is not null
+            && ReferenceEquals(_bookingSession, _activeSession)
             && AvailableSessionsGrid.SelectedItem is AvailableSessionRow;
 
     private async void ConfirmReservation_Click(object sender, RoutedEventArgs e)
     {
         if (_confirmingReservation) return;
-        if (AvailableSessionsGrid.SelectedItem is not AvailableSessionRow selected || _bookingSearch is not { } search)
+        if (AvailableSessionsGrid.SelectedItem is not AvailableSessionRow selected || _bookingSearch is not { } search
+            || !ReferenceEquals(_bookingSession, _activeSession))
         {
             Warn("یک نوبت آزاد را انتخاب کنید.");
             return;
@@ -164,7 +211,7 @@ public partial class MainWindow
     }
     private void ReservationCards_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var columns = e.NewSize.Width >= 600 ? 2 : 1;
+        var columns = e.NewSize.Width >= 640 ? 2 : 1;
         if (!Equals(ReservationCards.Tag, columns)) ReservationCards.Tag = columns;
     }
 

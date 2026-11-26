@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using System.Windows;
 using Forms = System.Windows.Forms;
 
@@ -47,6 +48,7 @@ public partial class MainWindow
     private void HideToTray()
     {
         if (_closing || _trayIcon is null || !IsVisible) return;
+        SaveWindowSize(AppPaths.WindowSize);
         _logWindow.Hide();
         Hide();
         ShowNotification("من اینجام، نگران نباش", "پایش نوبت در سینی ویندوز ادامه دارد.", "باز کردن برنامه", RestoreFromTray);
@@ -84,6 +86,7 @@ public partial class MainWindow
             return;
         }
 
+        if (IsVisible) SaveWindowSize(AppPaths.WindowSize);
         _closing = true;
         _monitorTimer.Stop();
         _alarmCancellation.Cancel();
@@ -100,6 +103,41 @@ public partial class MainWindow
         icon?.Dispose();
         _trayIcon = null;
     }
+
+    private void RestoreWindowSize(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return;
+            var size = JsonSerializer.Deserialize<WindowSize>(File.ReadAllText(path));
+            if (size is null || !double.IsFinite(size.Width) || !double.IsFinite(size.Height)
+                || size.Width <= 0 || size.Height <= 0) return;
+            var workArea = SystemParameters.WorkArea;
+            Width = Math.Clamp(size.Width, MinWidth, Math.Max(MinWidth, workArea.Width));
+            Height = Math.Clamp(size.Height, MinHeight, Math.Max(MinHeight, workArea.Height));
+            if (size.Maximized) WindowState = _lastVisibleState = WindowState.Maximized;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
+    }
+
+    private void SaveWindowSize(string path)
+    {
+        var bounds = WindowState == WindowState.Normal ? new Rect(0, 0, ActualWidth, ActualHeight) : RestoreBounds;
+        if (bounds.IsEmpty || bounds.Width <= 0 || bounds.Height <= 0) return;
+        var size = new WindowSize(bounds.Width, bounds.Height, _lastVisibleState == WindowState.Maximized);
+        var temporary = path + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(size));
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"ذخیرهٔ اندازهٔ پنجره انجام نشد: {ex.Message}");
+        }
+    }
+
+    private sealed record WindowSize(double Width, double Height, bool Maximized);
 
     private void ShowMonitorNotification(string serviceName, string message) =>
         ShowNotification("نوبت آزاد پیدا شد", message, "باز کردن پایش", OpenMonitoring, serviceName);

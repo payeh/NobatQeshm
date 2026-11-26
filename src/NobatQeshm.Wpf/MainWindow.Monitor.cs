@@ -46,8 +46,8 @@ public partial class MainWindow
     }
     private async void AddMonitor_Click(object sender, RoutedEventArgs e)
     {
-        var transfer = JsonHelpers.NormalizeDigits(MonitorTransferText.Text); var plate = JsonHelpers.NormalizeDigits(MonitorPlateText.Text); var series = JsonHelpers.NormalizeDigits(MonitorSeriesText.Text);
-        if (!transfer.All(char.IsDigit) || transfer.Length == 0 || !plate.All(char.IsDigit) || plate.Length == 0 || (series.Length > 0 && !series.All(char.IsDigit))) { Warn("کد شماره‌گذاری و شماره پلاک باید عددی و الزامی باشند؛ سری اختیاری و عددی است."); return; }
+        if (!TryReadMonitorVehicle(out var vehicle)) return;
+        var (transfer, plate, series) = vehicle;
         if (!int.TryParse(JsonHelpers.NormalizeDigits(MonitorIntervalText.Text), out var interval) || interval is < 1 or > 1440) { Warn("فاصله بررسی باید بین ۱ تا ۱۴۴۰ دقیقه باشد."); return; }
         if (!int.TryParse(JsonHelpers.NormalizeDigits(MonitorAlarmCountText.Text), out var alarmCount) || alarmCount is < 1 or > 20) { Warn("تعداد پخش هشدار را بین ۱ و ۲۰ وارد کنید."); return; }
         var services = _monitorServices.Where(x => x.Selected).ToList(); if (services.Count == 0) { Warn("حداقل یک خدمت را برای پایش انتخاب کنید."); return; }
@@ -61,6 +61,32 @@ public partial class MainWindow
         }
         if (created.Count == 0) { MessageBox.Show(this, "همه خدمت‌های انتخاب‌شده قبلاً برای این پلاک اضافه شده‌اند.", "پایش"); return; }
         UpdateMonitorSummary(); foreach (var item in created) await CheckMonitorItemAsync(item);
+    }
+
+    private void CheckAllServices_Click(object sender, RoutedEventArgs e)
+    {
+        if (_monitorCookies.Count == 0)
+        {
+            Warn("ابتدا یک نشست معتبر برای پایش انتخاب کنید.");
+            return;
+        }
+        if (!TryReadMonitorVehicle(out var vehicle)) return;
+        var (transfer, plate, series) = vehicle;
+        using var client = new QeshmClient(_client.BaseUrl, Log);
+        client.ImportCookies(_monitorCookies.ToList());
+        var dialog = new ServiceAvailabilityWindow(client, transfer, plate, series) { Owner = this };
+        dialog.ShowDialog();
+    }
+
+    private bool TryReadMonitorVehicle(out (string Transfer, string Plate, string Series) vehicle)
+    {
+        vehicle = (JsonHelpers.NormalizeDigits(MonitorTransferText.Text),
+            JsonHelpers.NormalizeDigits(MonitorPlateText.Text), JsonHelpers.NormalizeDigits(MonitorSeriesText.Text));
+        if (vehicle.Transfer.Length > 0 && vehicle.Plate.Length > 0 &&
+            vehicle.Transfer.All(char.IsAsciiDigit) && vehicle.Plate.All(char.IsAsciiDigit) && vehicle.Series.All(char.IsAsciiDigit))
+            return true;
+        Warn("کد شماره‌گذاری و شماره پلاک باید عددی و الزامی باشند؛ سری اختیاری و عددی است.");
+        return false;
     }
     private async void CheckMonitorNow_Click(object sender, RoutedEventArgs e) { if (MonitorGrid.SelectedItem is MonitorItem item && !item.Checking) { item.Enabled = true; await CheckMonitorItemAsync(item); } else Warn("یک مورد را از جدول انتخاب کنید."); }
     private void ToggleMonitor_Click(object sender, RoutedEventArgs e) { if (MonitorGrid.SelectedItem is not MonitorItem item) { Warn("یک مورد را انتخاب کنید."); return; } item.Enabled = !item.Enabled; if (item.Enabled) { item.NextDue = DateTime.Now; item.LastResult = "در صف بررسی"; } item.Refresh(); UpdateMonitorSummary(); }

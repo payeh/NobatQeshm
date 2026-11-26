@@ -28,7 +28,8 @@ public sealed record SavedPlate(
     [property: JsonPropertyName("transfer_code")] string TransferCode,
     [property: JsonPropertyName("number")] string Number,
     [property: JsonPropertyName("series")] string Series,
-    [property: JsonPropertyName("saved_date")] string SavedDate = "")
+    [property: JsonPropertyName("saved_date")] string SavedDate = "",
+    [property: JsonPropertyName("vehicle_name")] string VehicleName = "")
 {
     public string Display => $"{Name}  |  {Number}{(string.IsNullOrWhiteSpace(Series) ? "" : $" / {Series}")}  |  {TransferCode}";
     public string PersianSavedDate => JsonHelpers.ToPersianDate(SavedDate);
@@ -65,10 +66,14 @@ public sealed class PriceRow
     {
         get
         {
-            var normalized = JsonHelpers.NormalizeDigits(Price).Replace('٬', ',').Replace('،', ',').Replace('٫', '.');
+            var value = Price.Trim();
+            var amountText = value.EndsWith("ریال", StringComparison.Ordinal) || value.EndsWith("ريال", StringComparison.Ordinal)
+                ? value[..^4].TrimEnd()
+                : value;
+            var normalized = JsonHelpers.NormalizeDigits(amountText).Replace('٬', ',').Replace('،', ',').Replace('٫', '.');
             var culture = System.Globalization.CultureInfo.InvariantCulture;
-            if (!decimal.TryParse(normalized, System.Globalization.NumberStyles.Number, culture, out var amount)) return Price;
-            return amount.ToString("#,0.############################", culture).Replace(',', '،');
+            if (!decimal.TryParse(normalized, System.Globalization.NumberStyles.Number, culture, out var amount)) return value;
+            return $"{amount.ToString("#,0.############################", culture).Replace(',', '،')} ریال";
         }
     }
 }
@@ -93,7 +98,7 @@ public sealed class ReservationRow
     public string Plate => Source.Text("vehiclePlk", "plkNumber");
     public string Series => Source.Text("vehiclePlkSeries", "plkSeriesNumber");
     public string TransferCode => Source.Text("vehicleTransferCode", "transferCode");
-    public string Time => $"{Source.Text("startTime")} – {Source.Text("endTime")}";
+    public string Time => $"{Source.Text("startTime")} - {Source.Text("endTime")}";
     public string CreatedAt => Source.Text("createdAt");
     public string Code => Source.Text("reservationCode", "code");
     public bool HasCode => Code.Length > 0;

@@ -12,6 +12,7 @@ public static class AppPaths
     public static string Plates => Path.Combine(DataDirectory, "saved_plates.json");
     public static string Advertising => Path.Combine(DataDirectory, "receipt_advertising.json");
     public static string ActivationLease => Path.Combine(DataDirectory, "activation.dat");
+    public static string WindowSize => Path.Combine(DataDirectory, "window-size.json");
     private static string CreateDataDirectory()
     {
         // Same directory as the Python version: existing accounts and plates remain available.
